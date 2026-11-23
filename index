@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>힘의 연구소 탈출 — 조별 방탈출</title>
+<!--
+  조별 방탈출 게임 (2026-11-23, 단서 찾기·자물쇠 판) · 파일 escape.html · 주소 /escape
+  · 22차시 뒤 · 수행평가2 앞 빈 1차시용 복습 게임. 성적 미반영
+  · 서버 없음. 진행 상황은 이 노트북 브라우저(localStorage)에만 저장
+  · 방 그림의 물건을 눌러 단서·아이템을 찾고, 단서의 답으로 자물쇠 비밀번호를 맞춘다
+  · 정답은 넣지 않는다 — 비밀번호는 해시값만. 원본: 수업자료/방탈출 게임/원본/rooms.js → build2.js
+  · 점수: 방마다 100점, 자물쇠 틀릴 때마다 −20, 힌트 −30, 한 방 최저 40점. 탈출하면 남은 1분마다 +5
+-->
+<style>
+  :root{--ink:#2c3151;--line:#c9cfe6;--red:#e02020;--navy-d:#3f4e9e;--teal-d:#1fa8a0;--violet-d:#7a5ae0;--coral-d:#e8635f;--gold-d:#cf9520;--paper:#f8f9fe;--night:#1e2340;--ok:#18a058;--glow:#ffd76a;}
+  *{box-sizing:border-box;}
+  [hidden]{display:none !important;}
+  body{margin:0;background:#141831;font-family:"Apple SD Gothic Neo","Malgun Gothic","맑은 고딕",system-ui,sans-serif;color:var(--ink);min-height:100vh;}
+  button{font:inherit;cursor:pointer;}
+
+  /* 입장 */
+  #gate{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(circle at 50% 30%,#2f3870,#141831 70%);}
+  .card{background:#fff;border-radius:20px;padding:26px;width:440px;max-width:100%;text-align:center;box-shadow:0 18px 50px rgba(0,0,0,.35);}
+  .logo{font-size:46px;line-height:1;margin-bottom:6px;}
+  h1{font-size:24px;font-weight:900;margin:0 0 4px;}
+  .sub{font-size:13px;color:#767ea0;font-weight:700;line-height:1.6;margin-bottom:16px;}
+  .gRow{display:flex;gap:8px;margin-bottom:10px;}
+  .gRow select{flex:1;border:2px solid #dde2f0;border-radius:10px;padding:10px;font:inherit;font-size:16px;font-weight:800;text-align:center;background:#fff;color:var(--ink);}
+  .rules{text-align:left;background:var(--paper);border-radius:12px;padding:10px 14px;font-size:13px;font-weight:700;line-height:1.75;margin:4px 0 14px;}
+  .rules b{color:var(--navy-d);}
+  .big{width:100%;border:0;border-radius:12px;padding:13px;font-size:17px;font-weight:900;color:#fff;background:var(--navy-d);}
+  .big:hover{filter:brightness(1.1);}
+  .big.gold{background:var(--gold-d);}
+  .link{background:none;border:0;color:#9aa1c0;font-size:12px;font-weight:700;margin-top:10px;text-decoration:underline;}
+  #resetBox{margin-top:8px;font-size:12px;font-weight:700;color:#767ea0;}
+  #resetBox input{border:2px solid #dde2f0;border-radius:8px;padding:6px;width:120px;text-align:center;font:inherit;}
+  #resetBox button{border:0;border-radius:8px;padding:7px 10px;background:var(--coral-d);color:#fff;font-weight:800;}
+  .note{font-size:12.5px;color:#767ea0;font-weight:700;margin-top:12px;line-height:1.6;}
+
+  /* 위 막대 */
+  #bar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:9px 16px;background:#0d1026;color:#fff;}
+  #bar .who{font-weight:900;font-size:16px;}
+  #bar .sp{flex:1;}
+  .pill{background:rgba(255,255,255,.1);border-radius:999px;padding:6px 14px;font-weight:900;font-size:15px;color:#fff;}
+  #timer.warn{background:var(--coral-d);}
+  #scoreNow{color:var(--glow);}
+  #doors{display:flex;gap:6px;}
+  .dot{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;background:#2b3160;}
+  .dot.now{outline:2px solid var(--glow);}
+  .dot.done{background:#1d5b45;}
+
+  main{max-width:1060px;margin:0 auto;padding:12px 14px 30px;}
+  .roomHead{color:#fff;display:flex;align-items:center;gap:12px;margin:4px 2px 10px;}
+  .roomHead h2{margin:0;font-size:24px;font-weight:900;}
+  .roomHead .tp{font-size:13px;color:#aab1d6;font-weight:700;}
+  .roomHead .sp{flex:1;}
+  #hintBtn{border:0;border-radius:10px;padding:9px 14px;background:var(--gold-d);color:#fff;font-weight:900;}
+  #hintBtn.sure{background:var(--coral-d);}
+  #intro{background:rgba(255,255,255,.08);color:#dfe3f7;border-radius:12px;padding:10px 14px;font-weight:700;font-size:14.5px;line-height:1.6;margin-bottom:10px;}
+  #hintBox{background:#fff7e0;border:2px dashed var(--gold-d);border-radius:12px;padding:10px 14px;margin:0 0 10px;font-weight:700;line-height:1.65;white-space:pre-line;}
+
+  /* 방 그림 */
+  #sceneWrap{position:relative;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.4);}
+  #scene svg{display:block;width:100%;height:auto;}
+  .obj{cursor:pointer;transition:filter .15s;}
+  .obj:hover{filter:drop-shadow(0 0 6px #ffd76a) drop-shadow(0 0 2px #ffd76a);}
+  .obj.seen{opacity:.92;}
+  #tip{position:absolute;pointer-events:none;background:rgba(13,16,38,.9);color:#fff;font-weight:800;font-size:13px;padding:4px 10px;border-radius:8px;transform:translate(-50%,-140%);white-space:nowrap;}
+
+  /* 소지품 */
+  #inv{display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-top:10px;}
+  .invRow{display:flex;align-items:center;gap:8px;background:#0d1026;border-radius:14px;padding:8px 12px;color:#aab1d6;font-weight:800;font-size:13px;min-height:54px;flex-wrap:wrap;}
+  .invLbl{color:#fff;font-weight:900;margin-right:4px;}
+  .empty{color:#6c7398;font-size:12.5px;}
+  .slot.item{background:#5b3f12;border:2px solid var(--gold-d);}
+  .slot{display:flex;align-items:center;gap:6px;background:#2b3160;color:#fff;border-radius:10px;padding:6px 11px;font-weight:800;font-size:14px;border:0;}
+  .slot .sy{display:inline-block;width:24px;height:24px;border-radius:50%;background:var(--glow);color:var(--night);text-align:center;line-height:24px;font-size:13px;}
+  button.slot:hover{background:#3a4278;}
+
+  /* 팝업 */
+  #modal{position:fixed;inset:0;z-index:40;background:rgba(5,7,20,.7);display:flex;align-items:center;justify-content:center;padding:16px;}
+  #mBox{background:#fffdf6;border-radius:18px;padding:20px 22px;width:600px;max-width:100%;max-height:92vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.5);position:relative;}
+  #mBox.paper{background:#fff8e6;background-image:repeating-linear-gradient(#fff8e6 0 31px,#efe3c2 31px 32px);}
+  #mClose{position:absolute;right:12px;top:10px;border:0;background:none;font-size:24px;color:#9aa1c0;}
+  .mt{font-size:19px;font-weight:900;margin:0 30px 10px 0;display:flex;align-items:center;gap:10px;}
+  .mt .sy{width:34px;height:34px;border-radius:50%;background:var(--night);color:var(--glow);display:inline-flex;align-items:center;justify-content:center;font-size:18px;flex:none;}
+  .mq{font-size:17px;font-weight:800;line-height:1.65;white-space:pre-line;}
+  .mo{list-style:none;padding:0;margin:8px 0;font-size:16px;font-weight:700;line-height:1.9;}
+  .mtail{margin-top:10px;font-size:18px;font-weight:900;color:var(--navy-d);}
+  .mfig{text-align:center;margin:8px 0;}
+  .mtext{font-size:17px;font-weight:800;line-height:1.7;}
+  .gain{margin-top:12px;background:#e8f7ee;border-radius:12px;padding:10px;font-weight:900;color:var(--ok);font-size:16px;text-align:center;}
+
+  /* 자물쇠 */
+  .lockBody{background:linear-gradient(#5b6378,#3a4152);border-radius:18px;padding:18px;margin-top:8px;color:#fff;text-align:center;}
+  .dials{display:flex;justify-content:center;gap:12px;margin:6px 0 12px;}
+  .dial{display:flex;flex-direction:column;align-items:center;gap:4px;}
+  .dial .sy{font-size:20px;color:var(--glow);font-weight:900;}
+  .dial button{min-width:58px;width:100%;border:0;border-radius:8px;background:#232838;color:#cfd5ea;font-size:16px;padding:3px 0;}
+  .dial .v.wide{width:150px;font-size:24px;}
+  .dial .v{width:58px;height:66px;border-radius:10px;background:#fdfdfd;color:var(--ink);font-size:40px;font-weight:900;display:flex;align-items:center;justify-content:center;box-shadow:inset 0 3px 8px rgba(0,0,0,.25);user-select:none;}
+  .lockMsg{min-height:22px;font-weight:900;margin-top:8px;}
+  .lockMsg.bad{color:#ffb3ad;}
+  .shake{animation:sh .35s;}
+  @keyframes sh{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+
+  /* 방 탈출 */
+  #clear{margin-top:12px;background:#fff;border-radius:16px;padding:16px;text-align:center;}
+  #clear .t{font-size:22px;font-weight:900;color:var(--ok);margin-bottom:4px;}
+  #clear .s{font-size:15px;font-weight:800;margin-bottom:12px;}
+
+  /* 결과 */
+  #result{max-width:560px;margin:30px auto;padding:0 16px;}
+  #result .card{width:auto;}
+  #rTitle{font-size:26px;font-weight:900;margin:4px 0;}
+  #rWho{font-size:18px;font-weight:900;color:var(--navy-d);}
+  #rTotal{font-size:72px;font-weight:900;color:var(--gold-d);line-height:1.1;margin:8px 0 2px;}
+  table{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px;font-weight:700;}
+  td,th{border-bottom:1px solid #e3e7f3;padding:7px 6px;text-align:left;}
+  th{color:#767ea0;font-size:12px;}
+  td.r,th.r{text-align:right;}
+  tr.sum td{font-weight:900;border-top:2px solid var(--ink);}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="card">
+    <div class="logo">🔬🔒</div>
+    <h1>힘의 연구소 탈출</h1>
+    <div class="sub">연구소 문이 모두 잠겼다! 방 안을 뒤져 단서를 찾고, 자물쇠를 열어 탈출하라.</div>
+    <div class="gRow">
+      <select id="selCls"><option value="">반</option><option>1</option><option>2</option><option>3</option><option>4</option></select>
+      <select id="selTeam"><option value="">조</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select>
+    </div>
+    <div class="rules">
+      🔍 방 그림의 <b>물건을 눌러</b> 단서와 아이템을 찾아요 (꽝도 있어요)<br>
+      🔒 단서의 답으로 <b>자물쇠 비밀번호</b>를 맞추면 다음 방<br>
+      ⭐ 방마다 <b>100점</b> · 자물쇠 틀리면 <b>−20</b> · 힌트 <b>−30</b> (최저 40점)<br>
+      ⏱ 제한 <b>30분</b> · 일찍 탈출하면 남은 1분마다 <b>+5</b>
+    </div>
+    <button class="big" id="goBtn">입장하기</button>
+    <div id="resumeNote" class="note" hidden></div>
+    <button class="link" id="resetLink" hidden>처음부터 다시 하기 (선생님 확인)</button>
+    <div id="resetBox" hidden>‘처음부터’라고 입력 <input id="resetTxt"> <button id="resetGo">지우기</button></div>
+  </div>
+</div>
+
+<div id="bar" hidden>
+  <span class="who" id="who"></span><span id="doors"></span>
+  <span class="sp"></span>
+  <span class="pill">점수 <span id="scoreNow">0</span></span>
+  <span class="pill" id="timer">30:00</span>
+</div>
+
+<main id="room" hidden>
+  <div class="roomHead"><div><h2 id="rName"></h2><div class="tp" id="rTopic"></div></div><span class="sp"></span><button id="hintBtn">💡 힌트 (−30)</button></div>
+  <div id="intro"></div>
+  <div id="hintBox" hidden></div>
+  <div id="sceneWrap"><div id="scene"></div><div id="tip" hidden></div></div>
+  <div id="inv"><div class="invRow"><span class="invLbl">🎒 소지품</span><span id="invItems"></span></div><div class="invRow"><span class="invLbl">📜 단서</span><span id="invClues"></span></div></div>
+  <div id="clear" hidden></div>
+</main>
+
+<div id="modal" hidden><div id="mBox"><button id="mClose">✕</button><div id="mBody"></div></div></div>
+<div id="result" hidden></div>
+
+<script>
+const ROOMS = [{"id":1,"name":"힘의 방","icon":"➡️","topic":"힘의 표현 · 알짜힘 (17·18차시)","scene":"lab1","intro":"연구소 첫 번째 방. 문에는 기호 세 개(● ▲ ■)가 새겨진 숫자 자물쇠가 걸려 있다. 방 안 어딘가에 기호가 찍힌 단서가 있을 것이다…","hint":"📍 단서는 3개 — 책장의 빨간 책, 칠판, 그리고 잠긴 서랍. 서랍 열쇠는 초록색 근처에!\n💡 힘은 물체의 모양이나 운동 상태를 변하게 하는 원인. 같은 방향으로 작용하는 두 힘의 알짜힘은 두 힘의 크기를 더한다.","lock":{"label":"문의 숫자 자물쇠","desc":"기호 순서(● ▲ ■)대로 숫자를 맞추세요.","dials":[{"sym":"●","set":"d"},{"sym":"▲","set":"d"},{"sym":"■","set":"d"}],"h":"d9kbkz333d"},"objects":{"shelf":{"label":"책장","type":"clue","clue":"c1"},"board":{"label":"칠판","type":"clue","clue":"c2"},"plant":{"label":"화분","type":"item","item":"key1","text":"화분을 살짝 들어 보니… 바닥에 작은 열쇠가 테이프로 붙어 있다!"},"drawer":{"label":"책상 서랍","type":"locked","need":"key1","clue":"c3","lockedText":"서랍이 잠겨 있다. 작은 열쇠 구멍이 보인다…","openText":"작은 열쇠를 꽂아 돌리자 철컥! 서랍 안에 쪽지가 있다."},"clock":{"label":"벽시계","type":"decoy","text":"째깍, 째깍… 시계는 아무것도 말해 주지 않는다. 시간만 흐를 뿐."},"poster":{"label":"포스터","type":"decoy","text":"‘실험실 안전 수칙 — 뛰지 않기’. 단서는 아닌 것 같다."},"door":{"label":"문","type":"lock"}},"items":{"key1":{"icon":"🔑","name":"작은 열쇠"}},"clues":{"c1":{"sym":"●","title":"빨간 책 『과학에서 말하는 힘』","q":"과학에서 말하는 ‘힘’에 대한 설명으로 옳은 것은?","opts":["어떤 일을 할 수 있는 능력","몸에 생기는 기운","물체의 모양이나 운동 상태를 변하게 하는 원인","일이나 활동에 도움이 되는 것"],"tail":"옳은 것의 번호 = ●"},"c2":{"sym":"▲","title":"칠판에 남은 낙서","fig":"arrow","q":"공을 미는 힘을 화살표로 나타냈다. 화살표의 ‘길이’가 나타내는 것은?","opts":["힘의 방향","힘의 크기","힘의 작용점"],"tail":"답의 번호 = ▲"},"c3":{"sym":"■","title":"서랍 속 쪽지","fig":"net","q":"상자에 같은 방향(오른쪽)으로 3 N과 2 N의 힘이 작용한다.","tail":"알짜힘의 크기(N) = ■"}}},{"id":2,"name":"중력의 방","icon":"🌍","topic":"중력 · 무게와 질량 (19차시)","scene":"space","intro":"두 번째 방은 우주 관측실. 둥근 해치 문에 ● ▲ ■ 숫자 자물쇠가 달려 있다. 우주 정거장 모형이 든 진열장은 카드키로 잠겨 있다…","hint":"📍 단서는 3개 — 망원경, 창밖의 고드름, 진열장. 카드키는 우주복을 살펴보면!\n💡 무게는 중력의 크기(단위 N), 장소에 따라 달라진다. 질량은 고유한 양(단위 kg), 어디서나 같다.","lock":{"label":"해치 문의 숫자 자물쇠","desc":"기호 순서(● ▲ ■)대로 숫자를 맞추세요.","dials":[{"sym":"●","set":"d"},{"sym":"▲","set":"d"},{"sym":"■","set":"d"}],"h":"l25tubj8az"},"objects":{"scope":{"label":"망원경","type":"clue","clue":"c1"},"window":{"label":"창문 (고드름)","type":"clue","clue":"c2"},"suit":{"label":"우주복","type":"item","item":"card","text":"우주복 헬멧 안쪽 주머니에 무언가 반짝인다… 카드키다!"},"case":{"label":"진열장","type":"locked","need":"card","clue":"c3","lockedText":"유리 진열장이 잠겨 있다. 카드를 대는 칸이 보인다…","openText":"카드키를 대자 삑! 진열장이 열리고 우주 정거장 모형 아래 쪽지가 있다."},"globe":{"label":"지구본","type":"decoy","text":"빙글빙글 돌려 보았다. 우리나라가 보인다. 단서는 없다."},"chair":{"label":"의자","type":"decoy","text":"푹신한 의자다. 앉고 싶지만 시간이 없다!"},"door":{"label":"해치 문","type":"lock"}},"items":{"card":{"icon":"💳","name":"카드키"}},"clues":{"c1":{"sym":"●","title":"망원경 옆 관측 일지","q":"무게와 질량에 관한 설명으로 옳지 않은 것은?","opts":["질량은 물체가 가진 고유한 양이다.","무게는 물체에 작용하는 중력의 크기이다.","무게는 주로 kg이라는 단위를 사용하여 나타낸다.","무게는 장소에 따라 크기가 달라진다.","지구와 달에서는 질량이 같다."],"tail":"옳지 않은 것의 번호 = ●"},"c2":{"sym":"▲","title":"창문에 낀 성에 글씨","q":"중력이 작용하여 나타난 현상이 아닌 것은?","opts":["고드름이 아래로 자란다.","폭포에서 물이 아래로 떨어진다.","물체가 무겁거나 가볍다고 느낀다.","지구를 둘러싸고 있는 공기층이 있다.","미끄러운 병뚜껑에 고무줄을 감아서 열었다."],"tail":"아닌 것의 번호 = ▲"},"c3":{"sym":"■","title":"우주 정거장 모형 아래 쪽지","q":"지구에서 질량이 10 kg인 물체를, 중력을 거의 느낄 수 없는 우주 정거장에 가져갔다.\n(질량은 10 kg 그대로)","tail":"우주 정거장에서 이 물체의 무게(N) = ■"}}},{"id":3,"name":"탄성력의 방","icon":"🌀","topic":"탄성력 (20차시)","scene":"gym","intro":"세 번째 방은 체육 창고. 문의 자물쇠는 이상하다 — ● 숫자, ▲ O/X, ■ 낱말 칸이 섞여 있다. 사물함은 잠겨 있고…","hint":"📍 단서는 3개 — 활 과녁, 트램펄린, 사물함. 사물함 열쇠는 공 바구니 속에!\n💡 탄성력은 변형된 물체가 원래 모양으로 되돌아가려는 힘. 크기는 ‘늘어난 길이’에 비례한다.","lock":{"label":"창고 문의 섞인 자물쇠","desc":"● 숫자 · ▲ O/X · ■ 낱말을 맞추세요.","dials":[{"sym":"●","set":"d"},{"sym":"▲","set":"ox"},{"sym":"■","set":["양궁","열기구","머리끈","용수철저울","장대높이뛰기"]}],"h":"1a5nmcsz8qr"},"objects":{"target":{"label":"양궁 과녁","type":"clue","clue":"c1"},"tramp":{"label":"트램펄린","type":"clue","clue":"c2"},"balls":{"label":"공 바구니","type":"item","item":"key3","text":"공을 하나씩 꺼내 보니… 맨 밑에 열쇠가 있다!"},"locker":{"label":"사물함","type":"locked","need":"key3","clue":"c3","lockedText":"사물함이 잠겨 있다. 안에서 무언가 달그락거린다…","openText":"열쇠로 사물함을 열자 쪽지가 툭 떨어진다."},"mat":{"label":"매트","type":"decoy","text":"폭신한 매트. 눌러 보니 다시 원래 모양으로 돌아온다… 그런데 단서는 없다."},"whistle":{"label":"호루라기","type":"decoy","text":"삐익! 아무 일도 일어나지 않았다."},"door":{"label":"창고 문","type":"lock"}},"items":{"key3":{"icon":"🗝️","name":"사물함 열쇠"}},"clues":{"c1":{"sym":"●","title":"과녁에 꽂힌 쪽지","q":"빈칸에 들어갈 말을 바르게 짝지은 것은?\n(1) 탄성력의 방향은 탄성체에 가한 힘의 방향과 ( ㉠ ) 방향이다.\n(2) 탄성력의 크기는 탄성체가 변형된 정도가 ( ㉡ ) 크다.","opts":["㉠ 반대 · ㉡ 클수록","㉠ 같은 · ㉡ 클수록","㉠ 반대 · ㉡ 작을수록","㉠ 같은 · ㉡ 작을수록"],"tail":"바르게 짝지은 번호 = ●"},"c2":{"sym":"▲","title":"트램펄린 밑 낙서","fig":"spring","q":"이 말은 맞을까?\n“탄성력의 크기는 용수철의 전체 길이에 비례한다.”","tail":"맞으면 O, 틀리면 X = ▲"},"c3":{"sym":"■","title":"사물함 속 쪽지","q":"탄성력을 이용하는 예가 아닌 것은?","opts":["양궁","열기구","머리끈","용수철저울","장대높이뛰기"],"tail":"아닌 것의 이름 = ■"}}},{"id":4,"name":"마찰력의 방","icon":"🧊","topic":"마찰력 (21차시)","scene":"ice","intro":"네 번째 방은 꽁꽁 언 냉동 창고. 문에는 화살표 칸이 달린 방향 자물쇠가 있다. 바닥이 미끄럽다… 얼음 속에 무언가 보인다!","hint":"📍 단서는 4개 — 썰매, 병뚜껑, 나무 상자, 얼음 속 금고. 얼음 속 열쇠는 맨손으로는 미끄러워서… 장갑을 찾아봐!\n💡 마찰력은 물체의 운동(미끄러짐)을 방해하는 방향으로 작용한다. 접촉면이 거칠수록, 무게가 무거울수록 크다.","lock":{"label":"냉동 창고 방향 자물쇠","desc":"● ▲ ■ ◆ 순서대로 맞추세요. (● ◆ 화살표 · ▲ 숫자 · ■ O/X)","dials":[{"sym":"●","set":"dir"},{"sym":"▲","set":"d"},{"sym":"■","set":"ox"},{"sym":"◆","set":"dir"}],"h":"280evqr8h04"},"objects":{"cap":{"label":"병뚜껑","type":"clue","clue":"c1"},"sled":{"label":"썰매","type":"clue","clue":"c2"},"crate":{"label":"나무 상자","type":"clue","clue":"c4"},"shelf":{"label":"선반","type":"item","item":"glove","text":"선반 위에 고무 돌기가 붙은 장갑이 있다. 미끄럽지 않을 것 같다!"},"ice":{"label":"얼음 덩어리","type":"locked","need":"glove","clue":"c3","lockedText":"얼음 속에 작은 금고가 박혀 있다. 맨손으로 잡으니 미끌미끌… 도저히 꺼낼 수 없다!","openText":"고무 장갑을 끼자 손이 미끄러지지 않는다(마찰력이 커졌다!). 금고를 꺼내 열자 쪽지가 있다."},"fan":{"label":"냉각기","type":"decoy","text":"위잉— 차가운 바람만 나온다. 으슬으슬…"},"door":{"label":"냉동 창고 문","type":"lock"}},"items":{"glove":{"icon":"🧤","name":"고무 장갑"}},"clues":{"c1":{"sym":"●","title":"병뚜껑 밑 쪽지","fig":"cap","q":"책상 위에서 오른쪽으로 미끄러지는 병뚜껑에 작용하는 마찰력의 방향은?","tail":"마찰력의 방향(화살표) = ●"},"c2":{"sym":"▲","title":"썰매에 붙은 쪽지","q":"빈칸에 들어갈 말을 바르게 짝지은 것은?\n마찰력의 크기는 접촉면이 ( ㉠ )수록, 물체의 무게가 ( ㉡ )수록 크다.","opts":["㉠ 거칠 · ㉡ 무거울","㉠ 거칠 · ㉡ 가벼울","㉠ 매끄러울 · ㉡ 무거울","㉠ 매끄러울 · ㉡ 가벼울"],"tail":"바르게 짝지은 번호 = ▲"},"c3":{"sym":"■","title":"얼음 속 금고의 쪽지","q":"이 말은 맞을까?\n“마찰력은 물체의 운동을 방해하므로 항상 작을수록 좋다.”","tail":"맞으면 O, 틀리면 X = ■"},"c4":{"sym":"◆","title":"나무 상자에 적힌 글씨","fig":"crate","q":"무거운 상자를 오른쪽으로 밀었지만 상자가 움직이지 않았다.\n정지해 있는 상자에도 마찰력이 작용한다.","tail":"상자에 작용하는 마찰력의 방향(화살표) = ◆"}}},{"id":5,"name":"부력의 방","icon":"🌊","topic":"부력 (22차시)","scene":"dock","intro":"다섯 번째 방은 물이 찰랑이는 항구 창고. 수문에 ● 방향 · ▲ 숫자 · ■ 무게 칸 자물쇠가 걸려 있다. 잠수 장비 상자는 잠겨 있다…","hint":"📍 단서는 3개 — 물 위의 튜브, 화물선 모형, 잠수 장비 상자. 상자 열쇠는 그물 속에!\n💡 부력은 액체나 기체가 물체를 위로 밀어 올리는 힘. 부력 = 공기 중 눈금 − 물속 눈금. 잠긴 부피가 클수록 크다.","lock":{"label":"수문 자물쇠","desc":"● 화살표 · ▲ 숫자 · ■ 힘의 크기를 맞추세요.","dials":[{"sym":"●","set":"dir"},{"sym":"▲","set":"d"},{"sym":"■","set":["10 N","30 N","40 N","70 N"]}],"h":"20ljgaxu4d7"},"objects":{"tube":{"label":"튜브","type":"clue","clue":"c1"},"ship":{"label":"화물선 모형","type":"clue","clue":"c2"},"net":{"label":"그물","type":"item","item":"key5","text":"젖은 그물을 들추자 바닷물 냄새와 함께 열쇠가 걸려 나온다!"},"box":{"label":"잠수 장비 상자","type":"locked","need":"key5","clue":"c3","lockedText":"튼튼한 상자가 자물쇠로 잠겨 있다…","openText":"열쇠로 상자를 열자 용수철저울과 쪽지가 들어 있다."},"anchor":{"label":"닻","type":"decoy","text":"무거운 닻이다. 들어 보려 했지만 꿈쩍도 안 한다."},"gull":{"label":"갈매기 그림","type":"decoy","text":"끼룩끼룩. 갈매기는 아무것도 모른다는 표정이다."},"door":{"label":"수문","type":"lock"}},"items":{"key5":{"icon":"🔑","name":"상자 열쇠"}},"clues":{"c1":{"sym":"●","title":"튜브에 적힌 글씨","q":"물에 떠 있는 튜브에는 물이 튜브를 밀어 올리는 힘, 부력이 작용한다.\n부력은 액체나 기체가 그 속에 있는 물체를 밀어 올리는 힘이다.","tail":"부력의 방향(화살표) = ●"},"c2":{"sym":"▲","title":"화물선 모형의 꼬리표","q":"빈 화물선에 짐을 가득 실으면, 화물선에 작용하는 부력의 크기는?","opts":["작아진다","변하지 않는다","커진다","부력이 작용하지 않는다"],"tail":"답의 번호 = ▲"},"c3":{"sym":"■","title":"잠수 장비 상자 속 쪽지","fig":"scale","q":"물체 A를 용수철저울에 매달았더니 공기 중에서 40 N, 물속에 넣었을 때 30 N을 가리켰다.","tail":"물속에서 A에 작용하는 부력의 크기 = ■"}}},{"id":6,"name":"평형의 문","icon":"⚖️","topic":"힘의 평형 · 종합 (18·22차시) — 마지막 문","scene":"gate","intro":"드디어 연구소 정문! 거대한 저울 장치가 문을 막고 있다. 자물쇠는 네 칸(● ▲ ■ ◆). 마지막 비밀을 풀면 밖으로 나갈 수 있다!","hint":"📍 단서는 4개 — 저울, 줄다리기 그림, 수조, 배 모형.\n💡 평형: 두 힘의 크기가 같고 방향이 반대. 가라앉는 건 부력이 없어서가 아니라 부력보다 중력이 크기 때문.","lock":{"label":"정문의 마지막 자물쇠","desc":"● O/X · ▲ 화살표 · ■ ◆ 숫자를 맞추세요.","dials":[{"sym":"●","set":"ox"},{"sym":"▲","set":"dir"},{"sym":"■","set":"d"},{"sym":"◆","set":"d"}],"h":"5su41cpx6p"},"objects":{"balance":{"label":"거대한 저울","type":"clue","clue":"c1"},"rope":{"label":"줄다리기 그림","type":"clue","clue":"c2"},"tank":{"label":"수조","type":"clue","clue":"c3"},"boat":{"label":"배 모형","type":"clue","clue":"c4"},"lamp":{"label":"비상등","type":"decoy","text":"빨간 비상등이 깜빡인다. 서둘러야 한다!"},"door":{"label":"연구소 정문","type":"lock"}},"items":{},"clues":{"c1":{"sym":"●","title":"저울 받침의 글씨","q":"이 말은 맞을까?\n“두 힘의 크기만 같으면 방향과 상관없이 힘의 평형을 이룬다.”","tail":"맞으면 O, 틀리면 X = ●"},"c2":{"sym":"▲","title":"줄다리기 그림","fig":"tug","q":"줄에 왼쪽으로 2 N, 오른쪽으로 3 N의 힘이 작용한다.","tail":"알짜힘의 방향(화살표) = ▲"},"c3":{"sym":"■","title":"수조 바닥의 금속 덩어리","fig":"lump","q":"물 바닥에 가라앉은 금속 덩어리에 작용하는 힘에 대한 설명으로 옳은 것은?","opts":["부력이 작용하지 않는다.","부력이 중력보다 작다.","부력과 중력의 크기가 같다.","부력이 중력보다 크다."],"tail":"옳은 것의 번호 = ■"},"c4":{"sym":"◆","title":"배 모형의 꼬리표","q":"같은 금속으로 만든 배가 물 위에 떠서 가만히 있다. 배에 작용하는 부력과 중력은?","opts":["부력이 중력보다 크다.","크기가 같고 방향이 반대이다.","부력이 중력보다 작다.","부력만 작용하고 중력은 작용하지 않는다."],"tail":"옳은 것의 번호 = ◆"}}}];
+const LIMIT = 30*60*1000, SALT="esc26|";
+function h53(str,seed=0){let h1=0xdeadbeef^seed,h2=0x41c6ce57^seed;for(let i=0;i<str.length;i++){const c=str.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677);}
+  h1=Math.imul(h1^(h1>>>16),2246822507);h1^=Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507);h2^=Math.imul(h1^(h1>>>13),3266489909);
+  return (4294967296*(2097151&h2)+(h1>>>0)).toString(36);}
+const $=id=>document.getElementById(id);
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const CIRC="①②③④⑤";
+const DIAL={d:["0","1","2","3","4","5","6","7","8","9"],dir:["↑","→","↓","←"],ox:["O","X"]};
+
+/* ── 방 그림 (SVG 1000×560) · 물건마다 <g class="obj" data-obj="…"> ── */
+function shell(w1,w2,f1,f2,extra){return `<defs><linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${w1}"/><stop offset="1" stop-color="${w2}"/></linearGradient>
+  <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${f1}"/><stop offset="1" stop-color="${f2}"/></linearGradient>
+  <radialGradient id="lamp" cx=".5" cy="0" r=".9"><stop offset="0" stop-color="#fff6c8" stop-opacity=".22"/><stop offset="1" stop-color="#fff6c8" stop-opacity="0"/></radialGradient></defs>
+  <rect width="1000" height="420" fill="url(#wall)"/><rect y="420" width="1000" height="140" fill="url(#floor)"/>
+  <rect y="412" width="1000" height="10" fill="rgba(0,0,0,.25)"/>${extra||""}<ellipse cx="500" cy="0" rx="420" ry="300" fill="url(#lamp)"/>`;}
+function padlock(x,y,txt){return `<path d="M${x+8} ${y} a14 14 0 0 1 28 0 v12" stroke="#d9dde8" stroke-width="5" fill="none"/><rect x="${x}" y="${y+10}" width="44" height="40" rx="6" fill="#cf9520"/>
+  <text x="${x+22}" y="${y+35}" font-size="11" text-anchor="middle" fill="#fff" font-weight="900">${txt}</text>`;}
+const SCENES={
+lab1:`<svg viewBox="0 0 1000 560" xmlns="http://www.w3.org/2000/svg">${shell("#3a4580","#2c3566","#5b4a3a","#3d3127",
+  `<g stroke="#4a3c30" stroke-width="2">${[1,2,3,4,5,6,7].map(i=>`<line x1="${i*140-60}" y1="420" x2="${i*170-150}" y2="560"/>`).join("")}</g>`)}
+  <g class="obj" data-obj="poster"><rect x="262" y="250" width="70" height="95" rx="4" fill="#f1e9d2" stroke="#b9ab84" stroke-width="2"/>
+    <rect x="270" y="258" width="54" height="10" fill="#e8635f"/><g fill="#8d8466"><rect x="270" y="276" width="54" height="5"/><rect x="270" y="288" width="44" height="5"/><rect x="270" y="300" width="50" height="5"/><rect x="270" y="312" width="36" height="5"/></g>
+    <circle cx="297" cy="330" r="7" fill="#1fa8a0"/></g>
+  <g class="obj" data-obj="shelf"><rect x="40" y="90" width="200" height="330" rx="6" fill="#6b4a2e" stroke="#4b331f" stroke-width="4"/>
+    <rect x="54" y="104" width="172" height="302" fill="#3d2a1a"/>
+    ${[0,1,2].map(r=>`<rect x="54" y="${180+r*76}" width="172" height="10" fill="#6b4a2e"/>`).join("")}
+    ${[[60,"#3f4e9e",18,64],[80,"#cf9520",14,58],[96,"#1fa8a0",20,66],[118,"#7a5ae0",12,54],[132,"#c9cfe6",18,62],[152,"#3f4e9e",16,60],[170,"#1fa8a0",22,66],[194,"#cf9520",14,56]].map(([x,c,w,h])=>`<rect x="${x}" y="${180-h}" width="${w}" height="${h}" fill="${c}"/>`).join("")}
+    ${[[60,"#7a5ae0",16,60],[78,"#c9cfe6",20,52],[100,"#3f4e9e",14,64],[116,"#cf9520",18,58],[150,"#1fa8a0",16,62],[168,"#3f4e9e",22,56],[192,"#7a5ae0",16,60]].map(([x,c,w,h])=>`<rect x="${x}" y="${256-h}" width="${w}" height="${h}" fill="${c}"/>`).join("")}
+    <rect x="132" y="190" width="17" height="66" fill="#e02020" stroke="#ffd76a" stroke-width="2"/><text x="140.5" y="230" font-size="11" fill="#fff" text-anchor="middle" font-weight="900">힘</text>
+    ${[[60,"#cf9520",22,60],[84,"#1fa8a0",16,54],[102,"#c9cfe6",18,62],[124,"#3f4e9e",14,58],[140,"#7a5ae0",20,64],[164,"#cf9520",16,52],[182,"#1fa8a0",24,60]].map(([x,c,w,h])=>`<rect x="${x}" y="${332-h}" width="${w}" height="${h}" fill="${c}"/>`).join("")}
+    <rect x="70" y="360" width="60" height="38" rx="4" fill="#9aa1c0"/><rect x="150" y="350" width="40" height="48" rx="20" fill="#cfd5ea"/></g>
+  <g class="obj" data-obj="board"><rect x="360" y="60" width="330" height="190" rx="6" fill="#7a5a36"/><rect x="372" y="72" width="306" height="166" fill="#1f4d3a"/>
+    <circle cx="450" cy="160" r="26" fill="none" stroke="#e9f2ec" stroke-width="4"/><circle cx="450" cy="160" r="4" fill="#e9f2ec"/>
+    <line x1="450" y1="160" x2="560" y2="160" stroke="#ffd76a" stroke-width="5"/><path d="M560 148 L584 160 L560 172 Z" fill="#ffd76a"/>
+    <text x="600" y="120" font-size="30" fill="#e9f2ec" font-weight="900">?</text><text x="395" y="110" font-size="18" fill="#cfe3d7" font-weight="700">길이 = ▲ ?</text>
+    <rect x="600" y="232" width="40" height="8" rx="2" fill="#f3f3f3"/><rect x="380" y="238" width="290" height="8" fill="#5e4428"/></g>
+  <g class="obj" data-obj="clock"><circle cx="770" cy="110" r="44" fill="#f8f9fe" stroke="#cf9520" stroke-width="6"/>
+    ${[...Array(12)].map((_,i)=>{const a=i*Math.PI/6;return `<line x1="${770+34*Math.sin(a)}" y1="${110-34*Math.cos(a)}" x2="${770+39*Math.sin(a)}" y2="${110-39*Math.cos(a)}" stroke="#2c3151" stroke-width="3"/>`}).join("")}
+    <line x1="770" y1="110" x2="770" y2="80" stroke="#2c3151" stroke-width="4"/><line x1="770" y1="110" x2="792" y2="120" stroke="#2c3151" stroke-width="3"/><circle cx="770" cy="110" r="4" fill="#e02020"/></g>
+  <rect x="380" y="300" width="320" height="22" rx="4" fill="#8a6a44"/><rect x="392" y="322" width="16" height="110" fill="#6b4f30"/>
+  <path d="M470 300 L470 270 Q470 250 500 250 L520 250" stroke="#c9cfe6" stroke-width="4" fill="none"/><rect x="455" y="278" width="40" height="22" rx="4" fill="#cfd5ea"/>
+  <rect x="610" y="262" width="22" height="38" rx="3" fill="#7fd1c9" opacity=".8"/><rect x="640" y="272" width="30" height="28" rx="3" fill="#e8635f" opacity=".8"/>
+  <g class="obj" data-obj="drawer"><rect x="540" y="322" width="150" height="110" fill="#7a5a36" stroke="#5e4428" stroke-width="3"/>
+    <rect x="552" y="336" width="126" height="36" rx="3" fill="#8a6a44" stroke="#5e4428" stroke-width="2"/><rect x="600" y="350" width="30" height="8" rx="4" fill="#d9b779"/>
+    <rect x="552" y="382" width="126" height="40" rx="3" fill="#8a6a44" stroke="#5e4428" stroke-width="2"/><circle cx="615" cy="398" r="6" fill="#2c2c2c"/><rect x="613" y="398" width="4" height="10" fill="#2c2c2c"/></g>
+  <g class="obj" data-obj="plant"><path d="M300 440 L340 440 L333 500 L307 500 Z" fill="#c76b3c"/><rect x="296" y="432" width="48" height="12" rx="3" fill="#d98050"/>
+    <path d="M320 432 C300 400 280 380 270 360 C295 370 312 395 320 432" fill="#3aa660"/><path d="M320 432 C330 390 350 370 372 362 C362 392 340 412 320 432" fill="#2f9454"/>
+    <path d="M320 432 C318 395 322 370 326 340 C336 372 332 400 320 432" fill="#46b86d"/></g>
+  <g class="obj" data-obj="door"><rect x="800" y="170" width="160" height="250" rx="4" fill="#5d667f" stroke="#3a4152" stroke-width="6"/>
+    <rect x="818" y="190" width="124" height="90" rx="3" fill="#6b748e"/><rect x="818" y="296" width="124" height="104" rx="3" fill="#6b748e"/>
+    <text x="880" y="245" font-size="22" text-anchor="middle" fill="#cfd5ea" font-weight="900">EXIT</text>${padlock(908,286,"●▲■")}<circle cx="826" cy="330" r="7" fill="#d9dde8"/></g>
+</svg>`,
+
+space:`<svg viewBox="0 0 1000 560" xmlns="http://www.w3.org/2000/svg">${shell("#232a4d","#1a2040","#4a5068","#33384d",
+  `<g stroke="#5b627c" stroke-width="2">${[1,2,3,4,5,6].map(i=>`<line x1="0" y1="${420+i*22}" x2="1000" y2="${420+i*22}"/>`).join("")}</g>`)}
+  <g class="obj" data-obj="window"><circle cx="500" cy="170" r="125" fill="#0a0d24" stroke="#8a93b3" stroke-width="14"/>
+    ${[[430,110],[560,90],[600,200],[470,240],[520,150],[410,190],[580,130]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="2.5" fill="#fff"/>`).join("")}
+    <circle cx="555" cy="215" r="30" fill="#3f8be0"/><path d="M535 205 q10 -12 22 -4 q6 10 -8 16 z" fill="#3aa660"/>
+    ${[440,470,500,530,560].map((x,i)=>`<path d="M${x-8} 50 L${x+8} 50 L${x} ${78+i%2*18} Z" fill="#dff4ff" opacity=".9"/>`).join("")}</g>
+  <g class="obj" data-obj="scope"><rect x="65" y="250" width="260" height="180" fill="#000" fill-opacity="0"/><line x1="180" y1="430" x2="210" y2="330" stroke="#8a93b3" stroke-width="6"/><line x1="240" y1="430" x2="210" y2="330" stroke="#8a93b3" stroke-width="6"/><line x1="210" y1="430" x2="210" y2="330" stroke="#8a93b3" stroke-width="6"/>
+    <g transform="rotate(-28 210 320)"><rect x="140" y="300" width="160" height="34" rx="10" fill="#e9ecf7"/><rect x="290" y="294" width="26" height="46" rx="6" fill="#3f4e9e"/><rect x="128" y="306" width="16" height="22" rx="3" fill="#2c3151"/></g>
+    <rect x="70" y="380" width="70" height="44" rx="4" fill="#f1e9d2"/><g fill="#8d8466"><rect x="78" y="390" width="54" height="4"/><rect x="78" y="400" width="44" height="4"/><rect x="78" y="410" width="50" height="4"/></g></g>
+  <g class="obj" data-obj="suit"><rect x="700" y="240" width="90" height="120" rx="30" fill="#e9ecf7"/><circle cx="745" cy="210" r="42" fill="#e9ecf7"/><circle cx="745" cy="212" r="28" fill="#2c3566"/>
+    <path d="M730 200 q10 -8 20 0" stroke="#7fb6ff" stroke-width="4" fill="none"/><rect x="680" y="250" width="26" height="80" rx="12" fill="#e9ecf7"/><rect x="784" y="250" width="26" height="80" rx="12" fill="#e9ecf7"/>
+    <rect x="715" y="355" width="28" height="64" rx="10" fill="#e9ecf7"/><rect x="749" y="355" width="28" height="64" rx="10" fill="#e9ecf7"/><rect x="725" y="270" width="40" height="24" rx="4" fill="#e8635f"/><rect x="740" y="232" width="10" height="5" fill="#ffd76a"/></g>
+  <g class="obj" data-obj="case"><rect x="290" y="300" width="130" height="122" rx="4" fill="rgba(170,210,255,.22)" stroke="#aac8ee" stroke-width="4"/>
+    <rect x="300" y="380" width="110" height="10" fill="#8a93b3"/><rect x="330" y="340" width="50" height="16" rx="3" fill="#cfd5ea"/><rect x="310" y="344" width="20" height="8" fill="#3f8be0"/><rect x="380" y="344" width="20" height="8" fill="#3f8be0"/><line x1="355" y1="330" x2="355" y2="340" stroke="#cfd5ea" stroke-width="3"/>
+    <rect x="410" y="320" width="14" height="22" rx="3" fill="#2c3151"/><rect x="413" y="324" width="8" height="5" fill="#e02020"/></g>
+  <g class="obj" data-obj="globe"><circle cx="610" cy="370" r="30" fill="#3f8be0"/><path d="M590 360 q15 -15 30 0 q-5 18 -25 12 z" fill="#3aa660"/><rect x="606" y="400" width="8" height="18" fill="#8a93b3"/><rect x="588" y="416" width="44" height="6" rx="3" fill="#8a93b3"/></g>
+  <g class="obj" data-obj="chair"><rect x="480" y="380" width="70" height="20" rx="8" fill="#7a5ae0"/><rect x="485" y="340" width="60" height="44" rx="10" fill="#8b6cf0"/><rect x="511" y="400" width="8" height="30" fill="#5b627c"/></g>
+  <g class="obj" data-obj="door"><circle cx="900" cy="300" r="85" fill="#5d667f" stroke="#3a4152" stroke-width="10"/><circle cx="900" cy="300" r="58" fill="#6b748e" stroke="#8a93b3" stroke-width="4"/>
+    ${[0,1,2,3,4,5,6,7].map(i=>{const a=i*Math.PI/4;return `<circle cx="${900+72*Math.cos(a)}" cy="${300+72*Math.sin(a)}" r="4" fill="#cfd5ea"/>`}).join("")}${padlock(878,262,"●▲■")}</g>
+</svg>`,
+
+gym:`<svg viewBox="0 0 1000 560" xmlns="http://www.w3.org/2000/svg">${shell("#4b5a7a","#3a4766","#b48a55","#8f6a3d",
+  `<g stroke="#9e7748" stroke-width="2">${[1,2,3,4,5,6,7,8,9].map(i=>`<line x1="${i*110}" y1="420" x2="${i*110-40}" y2="560"/>`).join("")}</g><line x1="0" y1="500" x2="1000" y2="500" stroke="#fff" stroke-width="3" opacity=".5"/>`)}
+  <g class="obj" data-obj="target"><circle cx="170" cy="200" r="78" fill="#fff"/><circle cx="170" cy="200" r="62" fill="#2c3151"/><circle cx="170" cy="200" r="46" fill="#3f8be0"/><circle cx="170" cy="200" r="30" fill="#e02020"/><circle cx="170" cy="200" r="14" fill="#ffd76a"/>
+    <line x1="176" y1="196" x2="250" y2="150" stroke="#8a6a44" stroke-width="4"/><path d="M250 150 l12 -14 l-2 10 l10 0 z" fill="#e8635f"/><rect x="196" y="230" width="30" height="20" fill="#fff8e6" stroke="#cfbf8e"/>
+    <line x1="120" y1="270" x2="100" y2="420" stroke="#8a6a44" stroke-width="6"/><line x1="220" y1="270" x2="240" y2="420" stroke="#8a6a44" stroke-width="6"/></g>
+  <g class="obj" data-obj="tramp"><ellipse cx="470" cy="440" rx="130" ry="30" fill="#2c3151"/><ellipse cx="470" cy="436" rx="112" ry="22" fill="#1a1f3a"/>
+    ${[...Array(14)].map((_,i)=>{const a=i*Math.PI/7;return `<line x1="${470+112*Math.cos(a)}" y1="${436+22*Math.sin(a)}" x2="${470+130*Math.cos(a)}" y2="${440+30*Math.sin(a)}" stroke="#cfd5ea" stroke-width="2"/>`}).join("")}
+    ${[360,420,520,580].map(x=>`<line x1="${x}" y1="455" x2="${x}" y2="495" stroke="#8a93b3" stroke-width="6"/>`).join("")}</g>
+  <g class="obj" data-obj="balls"><path d="M300 330 L400 330 L388 420 L312 420 Z" fill="#8a6a44"/><g stroke="#6b4f30" stroke-width="2"><line x1="305" y1="355" x2="395" y2="355"/><line x1="308" y1="385" x2="392" y2="385"/></g>
+    <circle cx="325" cy="318" r="18" fill="#e8742a"/><circle cx="362" cy="312" r="20" fill="#f3f3f3" stroke="#2c3151" stroke-width="2"/><circle cx="388" cy="322" r="14" fill="#ffd76a"/></g>
+  <g class="obj" data-obj="locker">${[0,1,2].map(i=>`<rect x="${580+i*62}" y="150" width="60" height="268" fill="${i===1?"#3f8be0":"#5b8ccf"}" stroke="#2c4f80" stroke-width="3"/>
+    ${[0,1,2,3].map(j=>`<rect x="${592+i*62}" y="${165+j*8}" width="36" height="3" fill="#2c4f80"/>`).join("")}<rect x="${626+i*62}" y="280" width="6" height="22" rx="2" fill="#cfd5ea"/>`).join("")}
+    <circle cx="690" cy="320" r="7" fill="#2c2c2c"/></g>
+  <g class="obj" data-obj="mat"><rect x="40" y="440" width="190" height="50" rx="10" fill="#1fa8a0"/><rect x="40" y="440" width="190" height="14" rx="7" fill="#25c2b9"/></g>
+  <g class="obj" data-obj="whistle"><rect x="495" y="135" width="80" height="135" fill="#000" fill-opacity="0"/><path d="M520 250 q0 -16 18 -16 h30 v24 h-30 q-18 0 -18 -8z" fill="#cfd5ea"/><circle cx="534" cy="250" r="12" fill="#cfd5ea"/><line x1="560" y1="234" x2="560" y2="180" stroke="#e02020" stroke-width="3"/><line x1="560" y1="180" x2="500" y2="140" stroke="#e02020" stroke-width="3"/></g>
+  <g class="obj" data-obj="door"><rect x="810" y="160" width="160" height="260" rx="4" fill="#8a6a44" stroke="#5e4428" stroke-width="6"/>
+    <rect x="828" y="180" width="124" height="104" rx="3" fill="#9a7a52"/><rect x="828" y="298" width="124" height="104" rx="3" fill="#9a7a52"/>
+    <text x="890" y="238" font-size="18" text-anchor="middle" fill="#f1e9d2" font-weight="900">창고</text>${padlock(916,290,"●▲■")}<circle cx="836" cy="330" r="7" fill="#d9dde8"/></g>
+</svg>`,
+
+ice:`<svg viewBox="0 0 1000 560" xmlns="http://www.w3.org/2000/svg">${shell("#5f86b0","#46699a","#cfe6f7","#a9cbe6",
+  `${[1,2,3,4,5].map(i=>`<path d="M${i*190-80} 470 l60 -8 l40 20" stroke="#fff" stroke-width="3" fill="none" opacity=".7"/>`).join("")}
+   ${[...Array(16)].map((_,i)=>`<path d="M${i*64+10} 0 L${i*64+26} 0 L${i*64+18} ${24+(i%3)*14} Z" fill="#e6f5ff"/>`).join("")}`)}
+  <g class="obj" data-obj="shelf"><rect x="36" y="90" width="200" height="330" fill="#000" fill-opacity="0"/><rect x="40" y="130" width="190" height="14" fill="#8a93b3"/><rect x="40" y="230" width="190" height="14" fill="#8a93b3"/><line x1="48" y1="144" x2="48" y2="420" stroke="#8a93b3" stroke-width="8"/><line x1="222" y1="144" x2="222" y2="420" stroke="#8a93b3" stroke-width="8"/>
+    <rect x="60" y="96" width="46" height="34" rx="4" fill="#cfd5ea"/><rect x="120" y="104" width="40" height="26" rx="4" fill="#9aa1c0"/>
+    <path d="M150 230 v-38 q0 -8 8 -8 h6 v-12 q0 -6 6 -6 q6 0 6 6 v12 h6 v-8 q0 -6 6 -6 q6 0 6 6 v54z" fill="#e8742a"/>${[160,172,184,196].map(x=>`<circle cx="${x}" cy="210" r="2.5" fill="#b4531c"/>`).join("")}
+    <rect x="70" y="196" width="50" height="34" rx="4" fill="#cfd5ea"/></g>
+  <g class="obj" data-obj="cap"><rect x="290" y="330" width="170" height="16" rx="3" fill="#8a93b3"/><line x1="300" y1="346" x2="300" y2="420" stroke="#8a93b3" stroke-width="7"/><line x1="450" y1="346" x2="450" y2="420" stroke="#8a93b3" stroke-width="7"/>
+    <rect x="360" y="312" width="34" height="18" rx="5" fill="#e02020"/><g stroke="#ffd76a" stroke-width="3"><line x1="330" y1="318" x2="350" y2="318"/><line x1="335" y1="326" x2="352" y2="326"/></g></g>
+  <g class="obj" data-obj="sled"><path d="M470 470 h170 q20 0 24 -18" stroke="#8a6a44" stroke-width="7" fill="none"/><rect x="480" y="430" width="150" height="22" rx="5" fill="#e8635f"/><line x1="500" y1="452" x2="500" y2="470" stroke="#8a6a44" stroke-width="5"/><line x1="610" y1="452" x2="610" y2="470" stroke="#8a6a44" stroke-width="5"/></g>
+  <g class="obj" data-obj="crate"><rect x="660" y="330" width="110" height="90" fill="#b48a55" stroke="#7a5a36" stroke-width="4"/><line x1="660" y1="330" x2="770" y2="420" stroke="#7a5a36" stroke-width="4"/><line x1="770" y1="330" x2="660" y2="420" stroke="#7a5a36" stroke-width="4"/><text x="715" y="320" font-size="14" text-anchor="middle" fill="#fff" font-weight="900">◆</text></g>
+  <g class="obj" data-obj="ice"><path d="M250 440 l40 -60 l70 -10 l30 50 l-20 50 l-90 10 z" fill="#bfe6ff" stroke="#fff" stroke-width="3" opacity=".95"/><rect x="295" y="420" width="44" height="34" rx="4" fill="#5d667f"/><circle cx="317" cy="437" r="7" fill="#cfd5ea"/><path d="M270 430 l20 -30" stroke="#fff" stroke-width="3"/></g>
+  <g class="obj" data-obj="fan"><rect x="420" y="70" width="140" height="90" rx="8" fill="#cfd5ea" stroke="#8a93b3" stroke-width="4"/>${[0,1,2,3,4].map(i=>`<line x1="432" y1="${86+i*14}" x2="548" y2="${86+i*14}" stroke="#8a93b3" stroke-width="3"/>`).join("")}</g>
+  <g class="obj" data-obj="door"><rect x="810" y="150" width="160" height="270" rx="6" fill="#c9d3e2" stroke="#8a93b3" stroke-width="6"/><rect x="826" y="168" width="128" height="234" rx="4" fill="#dbe3ef"/>
+    <rect x="938" y="250" width="12" height="70" rx="5" fill="#8a93b3"/><text x="890" y="210" font-size="16" text-anchor="middle" fill="#46699a" font-weight="900">❄ 냉동</text>${padlock(856,300,"●▲■◆")}</g>
+</svg>`,
+
+dock:`<svg viewBox="0 0 1000 560" xmlns="http://www.w3.org/2000/svg">${shell("#5a6b8f","#43527a","#2b6ca8","#1b4f80",
+  `<g stroke="#5aa0dd" stroke-width="3" fill="none" opacity=".7">${[0,1,2].map(r=>[...Array(8)].map((_,i)=>`<path d="M${i*130+r*40} ${450+r*35} q20 -10 40 0 t40 0"/>`).join("")).join("")}</g>
+   <rect x="0" y="380" width="1000" height="40" fill="#8a6a44"/>${[...Array(11)].map((_,i)=>`<line x1="${i*100}" y1="380" x2="${i*100}" y2="420" stroke="#6b4f30" stroke-width="3"/>`).join("")}`)}
+  <g class="obj" data-obj="gull"><rect x="380" y="70" width="150" height="100" fill="#f1e9d2" stroke="#8a6a44" stroke-width="5"/><rect x="390" y="80" width="130" height="80" fill="#bfe0f7"/><path d="M420 120 q15 -15 30 0 q15 -15 30 0" stroke="#2c3151" stroke-width="4" fill="none"/></g>
+  <g class="obj" data-obj="tube"><ellipse cx="200" cy="470" rx="62" ry="22" fill="#e8635f"/><ellipse cx="200" cy="466" rx="28" ry="9" fill="#1b4f80"/>${[0,1,2,3].map(i=>`<rect x="${150+i*30}" y="${456+(i%2)*4}" width="12" height="20" fill="#fff" transform="rotate(${-30+i*20} ${156+i*30} 466)"/>`).join("")}</g>
+  <g class="obj" data-obj="ship"><path d="M560 470 L720 470 L700 510 L580 510 Z" fill="#3f4e9e"/><rect x="590" y="430" width="40" height="40" fill="#cf9520"/><rect x="636" y="440" width="34" height="30" fill="#1fa8a0"/><rect x="676" y="420" width="22" height="50" fill="#e9ecf7"/><rect x="684" y="400" width="8" height="20" fill="#e02020"/>
+    <path d="M560 480 h160" stroke="#fff" stroke-width="3" opacity=".6"/></g>
+  <g class="obj" data-obj="net"><path d="M40 160 q80 50 160 0 l-20 200 q-60 30 -120 0 z" fill="#000" fill-opacity="0"/><path d="M40 160 q80 50 160 0 l-20 200 q-60 30 -120 0 z" fill="none" stroke="#c9b48f" stroke-width="3"/>${[0,1,2,3,4,5].map(i=>`<line x1="${52+i*28}" y1="${180+(i%2)*8}" x2="${70+i*22}" y2="360" stroke="#c9b48f" stroke-width="2"/>`).join("")}${[0,1,2,3].map(i=>`<path d="M${50+i*4} ${210+i*40} q${70-i*6} 20 ${140-i*10} 0" stroke="#c9b48f" stroke-width="2" fill="none"/>`).join("")}</g>
+  <g class="obj" data-obj="box"><rect x="270" y="300" width="150" height="80" rx="6" fill="#e8b84a" stroke="#a7801f" stroke-width="4"/><rect x="270" y="300" width="150" height="20" rx="6" fill="#f2c95e"/><rect x="335" y="326" width="20" height="24" rx="3" fill="#5d667f"/><text x="345" y="368" font-size="12" text-anchor="middle" fill="#7a5a10" font-weight="900">DIVE</text></g>
+  <g class="obj" data-obj="anchor"><rect x="475" y="275" width="90" height="105" fill="#000" fill-opacity="0"/><circle cx="520" cy="290" r="12" fill="none" stroke="#2c3151" stroke-width="6"/><line x1="520" y1="302" x2="520" y2="370" stroke="#2c3151" stroke-width="8"/><line x1="500" y1="318" x2="540" y2="318" stroke="#2c3151" stroke-width="6"/><path d="M480 350 q40 40 80 0" stroke="#2c3151" stroke-width="8" fill="none"/></g>
+  <g class="obj" data-obj="door"><rect x="800" y="140" width="170" height="240" fill="#5d667f" stroke="#3a4152" stroke-width="6"/>${[0,1,2,3,4,5].map(i=>`<line x1="806" y1="${170+i*34}" x2="964" y2="${170+i*34}" stroke="#4b5366" stroke-width="4"/>`).join("")}
+    <text x="885" y="165" font-size="15" text-anchor="middle" fill="#cfd5ea" font-weight="900">수문</text>${padlock(863,290,"●▲■")}</g>
+</svg>`,
+
+gate:`<svg viewBox="0 0 1000 560" xmlns="http://www.w3.org/2000/svg">${shell("#3d3157","#2c2442","#57506b","#3d374f",
+  `<g stroke="#6b6382" stroke-width="2">${[1,2,3,4,5,6,7,8].map(i=>`<line x1="${i*125}" y1="420" x2="${i*125-60}" y2="560"/>`).join("")}</g>`)}
+  <g class="obj" data-obj="lamp"><rect x="470" y="22" width="60" height="26" rx="10" fill="#e02020"/><ellipse cx="500" cy="35" rx="70" ry="30" fill="#e02020" opacity=".18"/></g>
+  <g class="obj" data-obj="balance"><rect x="190" y="186" width="240" height="236" fill="#000" fill-opacity="0"/><rect x="250" y="410" width="120" height="12" fill="#cf9520"/><rect x="304" y="200" width="12" height="212" fill="#cf9520"/><polygon points="310,190 300,206 320,206" fill="#ffd76a"/>
+    <line x1="210" y1="206" x2="410" y2="206" stroke="#cf9520" stroke-width="8"/><line x1="220" y1="206" x2="200" y2="290" stroke="#e8c26a" stroke-width="2"/><line x1="220" y1="206" x2="240" y2="290" stroke="#e8c26a" stroke-width="2"/>
+    <line x1="400" y1="206" x2="380" y2="290" stroke="#e8c26a" stroke-width="2"/><line x1="400" y1="206" x2="420" y2="290" stroke="#e8c26a" stroke-width="2"/>
+    <path d="M190 290 h60 q-6 18 -30 18 q-24 0 -30 -18z" fill="#cf9520"/><path d="M370 290 h60 q-6 18 -30 18 q-24 0 -30 -18z" fill="#cf9520"/></g>
+  <g class="obj" data-obj="rope"><rect x="40" y="90" width="170" height="110" fill="#f1e9d2" stroke="#8a6a44" stroke-width="5"/><line x1="60" y1="150" x2="190" y2="150" stroke="#8a6a44" stroke-width="4"/>
+    <circle cx="66" cy="128" r="9" fill="#3f4e9e"/><line x1="66" y1="137" x2="72" y2="165" stroke="#3f4e9e" stroke-width="5"/><circle cx="184" cy="124" r="11" fill="#e8635f"/><line x1="184" y1="135" x2="176" y2="168" stroke="#e8635f" stroke-width="6"/>
+    <text x="125" y="186" font-size="13" text-anchor="middle" fill="#8a6a44" font-weight="900">2 N vs 3 N</text></g>
+  <g class="obj" data-obj="tank"><rect x="470" y="290" width="150" height="130" fill="rgba(120,190,255,.25)" stroke="#aac8ee" stroke-width="4"/><rect x="473" y="318" width="144" height="99" fill="rgba(60,140,230,.45)"/>
+    <path d="M520 417 l12 -18 l26 -2 l10 20 z" fill="#8a93b3"/><circle cx="500" cy="350" r="4" fill="#bfe0f7"/><circle cx="590" cy="370" r="3" fill="#bfe0f7"/></g>
+  <g class="obj" data-obj="boat"><rect x="640" y="380" width="120" height="40" fill="rgba(60,140,230,.45)" stroke="#aac8ee" stroke-width="3"/><path d="M660 380 L740 380 L728 396 L672 396 Z" fill="#8a93b3"/><line x1="700" y1="380" x2="700" y2="350" stroke="#5b627c" stroke-width="3"/><path d="M700 352 l20 12 l-20 4z" fill="#ffd76a"/></g>
+  <g class="obj" data-obj="door"><rect x="790" y="110" width="190" height="310" rx="8" fill="#2a2338" stroke="#cf9520" stroke-width="8"/><line x1="885" y1="118" x2="885" y2="412" stroke="#cf9520" stroke-width="4"/>
+    <text x="885" y="160" font-size="18" text-anchor="middle" fill="#ffd76a" font-weight="900">정문</text><circle cx="868" cy="270" r="8" fill="#cf9520"/><circle cx="902" cy="270" r="8" fill="#cf9520"/>${padlock(863,300,"●▲■◆")}</g>
+</svg>`
+};
+
+/* ── 단서 그림 ── */
+const FIGS={
+arrow:`<svg viewBox="0 0 360 130" width="360"><rect width="360" height="130" rx="10" fill="#1f4d3a"/><circle cx="90" cy="65" r="34" fill="none" stroke="#e9f2ec" stroke-width="4"/><circle cx="90" cy="65" r="5" fill="#e9f2ec"/>
+  <line x1="90" y1="65" x2="270" y2="65" stroke="#ffd76a" stroke-width="6"/><path d="M270 50 L298 65 L270 80 Z" fill="#ffd76a"/>
+  <text x="170" y="40" font-size="16" fill="#cfe3d7" text-anchor="middle" font-weight="700">이 길이는?</text><path d="M90 100 L298 100" stroke="#cfe3d7" stroke-dasharray="5 5" stroke-width="2"/></svg>`,
+net:`<svg viewBox="0 0 380 140" width="380"><rect x="20" y="118" width="340" height="6" fill="#8d8466"/><rect x="130" y="58" width="110" height="60" rx="4" fill="#d9b779" stroke="#8a6a44" stroke-width="3"/>
+  <circle cx="185" cy="88" r="4" fill="#2c3151"/><line x1="185" y1="82" x2="320" y2="82" stroke="#e02020" stroke-width="5"/><path d="M320 72 L338 82 L320 92 Z" fill="#e02020"/><text x="300" y="66" font-size="16" font-weight="900" fill="#e02020" text-anchor="middle">3 N</text>
+  <line x1="185" y1="96" x2="275" y2="96" stroke="#3f4e9e" stroke-width="5"/><path d="M275 86 L293 96 L275 106 Z" fill="#3f4e9e"/><text x="300" y="112" font-size="16" font-weight="900" fill="#3f4e9e" text-anchor="middle">2 N</text></svg>`,
+spring:`<svg viewBox="0 0 360 120" width="360"><rect x="20" y="20" width="10" height="80" fill="#8a93b3"/><path d="M30 60 ${[...Array(10)].map((_,i)=>`l12 ${i%2?24:-24}`).join(" ")} l20 0" stroke="#3f4e9e" stroke-width="4" fill="none"/>
+  <rect x="170" y="44" width="40" height="32" rx="4" fill="#cf9520"/><circle cx="190" cy="60" r="3.5" fill="#2c3151"/><line x1="190" y1="60" x2="300" y2="60" stroke="#e02020" stroke-width="5"/><path d="M300 50 L318 60 L300 70 Z" fill="#e02020"/><text x="260" y="44" font-size="14" text-anchor="middle" fill="#e02020" font-weight="900">당기는 힘</text></svg>`,
+cap:`<svg viewBox="0 0 380 110" width="380"><rect x="20" y="70" width="340" height="12" fill="#8a6a44"/><rect x="170" y="46" width="44" height="24" rx="6" fill="#e02020"/>
+  <line x1="220" y1="40" x2="300" y2="40" stroke="#2c3151" stroke-width="4"/><path d="M300 32 L316 40 L300 48 Z" fill="#2c3151"/><text x="260" y="28" font-size="14" text-anchor="middle" fill="#2c3151" font-weight="900">미끄러지는 방향</text>
+  <g stroke="#cfd5ea" stroke-width="3"><line x1="120" y1="52" x2="155" y2="52"/><line x1="128" y1="62" x2="160" y2="62"/></g></svg>`,
+crate:`<svg viewBox="0 0 380 130" width="380"><rect x="20" y="100" width="340" height="10" fill="#8d8466"/><rect x="150" y="40" width="100" height="60" fill="#b48a55" stroke="#7a5a36" stroke-width="3"/>
+  <circle cx="70" cy="45" r="12" fill="#3f4e9e"/><line x1="70" y1="57" x2="80" y2="95" stroke="#3f4e9e" stroke-width="6"/><line x1="76" y1="70" x2="148" y2="70" stroke="#3f4e9e" stroke-width="5" stroke-linecap="round"/><circle cx="200" cy="70" r="4" fill="#2c3151"/><line x1="200" y1="70" x2="270" y2="70" stroke="#3f4e9e" stroke-width="5"/><path d="M270 62 L286 70 L270 78 Z" fill="#3f4e9e"/><text x="320" y="75" font-size="13" text-anchor="middle" fill="#3f4e9e" font-weight="900">미는 힘</text>
+  <text x="200" y="30" font-size="14" text-anchor="middle" fill="#2c3151" font-weight="900">움직이지 않는다!</text></svg>`,
+scale:`<svg viewBox="0 0 380 170" width="380"><g transform="translate(60 0)"><rect x="40" y="10" width="20" height="60" rx="4" fill="#cfd5ea" stroke="#5b627c" stroke-width="2"/><line x1="50" y1="70" x2="50" y2="90" stroke="#5b627c" stroke-width="2"/><rect x="32" y="90" width="36" height="30" rx="3" fill="#8a93b3"/><text x="50" y="108" font-size="12" text-anchor="middle" fill="#fff" font-weight="900">A</text><text x="50" y="150" font-size="16" text-anchor="middle" fill="#2c3151" font-weight="900">(가) 40 N</text></g>
+  <g transform="translate(200 0)"><rect x="40" y="10" width="20" height="60" rx="4" fill="#cfd5ea" stroke="#5b627c" stroke-width="2"/><line x1="50" y1="70" x2="50" y2="90" stroke="#5b627c" stroke-width="2"/><rect x="0" y="80" width="100" height="56" fill="rgba(60,140,230,.35)" stroke="#5aa0dd" stroke-width="2"/><rect x="32" y="90" width="36" height="30" rx="3" fill="#8a93b3"/><text x="50" y="108" font-size="12" text-anchor="middle" fill="#fff" font-weight="900">A</text><text x="50" y="158" font-size="16" text-anchor="middle" fill="#2c3151" font-weight="900">(나) 30 N</text></g></svg>`,
+tug:`<svg viewBox="0 0 380 110" width="380"><line x1="60" y1="60" x2="320" y2="60" stroke="#8a6a44" stroke-width="3" opacity=".5"/><rect x="180" y="52" width="20" height="16" fill="#e02020" opacity=".35"/>
+  <circle cx="190" cy="60" r="4" fill="#2c3151"/><line x1="190" y1="60" x2="130" y2="60" stroke="#3f4e9e" stroke-width="5"/><path d="M130 52 L114 60 L130 68 Z" fill="#3f4e9e"/><text x="150" y="42" font-size="15" text-anchor="middle" fill="#3f4e9e" font-weight="900">2 N</text>
+  <line x1="190" y1="60" x2="280" y2="60" stroke="#e02020" stroke-width="5"/><path d="M280 52 L296 60 L280 68 Z" fill="#e02020"/><text x="250" y="88" font-size="15" text-anchor="middle" fill="#e02020" font-weight="900">3 N</text></svg>`,
+lump:`<svg viewBox="0 0 380 140" width="380"><rect x="100" y="10" width="180" height="120" fill="rgba(60,140,230,.3)" stroke="#5aa0dd" stroke-width="3"/><path d="M160 128 l14 -22 l34 -2 l12 24 z" fill="#8a93b3"/>
+  <text x="190" y="50" font-size="14" text-anchor="middle" fill="#1b4f80" font-weight="900">바닥에 가라앉음</text></svg>`
+};
+
+
+/* ── 상태 ── */
+let S=null,KEY="",tick=null;
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function load(k){try{return JSON.parse(localStorage.getItem(k)||"null");}catch(e){return null;}}
+function fresh(c,t){return {cls:c,team:t,start:Date.now(),room:0,end:null,timeUp:false,
+  rooms:ROOMS.map(()=>({wrong:0,hint:false,seen:{},items:{},used:{},opened:{},clues:{},score:null}))};}
+const roomScore=st=>Math.max(40,100-20*st.wrong-(st.hint?30:0));
+const remain=()=>Math.max(0,LIMIT-((S.end||Date.now())-S.start));
+const bonus=()=>(S.end&&!S.timeUp)?Math.floor(remain()/60000)*5:0;
+const total=()=>S.rooms.reduce((a,r)=>a+(r.score||0),0)+bonus();
+
+/* ── 입장 ── */
+function gateKey(){const c=$("selCls").value,t=$("selTeam").value;return (c&&t)?`esc26b_${c}_${t}`:"";}
+function gateCheck(){const k=gateKey(),old=k&&load(k);
+  $("resumeNote").hidden=!old;$("resetLink").hidden=!old;$("resetBox").hidden=true;
+  if(old){$("resumeNote").textContent=old.end?"이 조는 이미 끝났어요. 입장하면 결과 화면이 보여요.":`이어서 합니다 (방 ${old.room+1}부터).`;$("goBtn").textContent=old.end?"결과 보기":"이어하기";}
+  else $("goBtn").textContent="입장하기";}
+$("selCls").onchange=$("selTeam").onchange=gateCheck;
+$("resetLink").onclick=()=>{$("resetBox").hidden=false;$("resetTxt").focus();};
+$("resetGo").onclick=()=>{if($("resetTxt").value.trim()==="처음부터"){try{localStorage.removeItem(gateKey());}catch(e){}$("resetTxt").value="";gateCheck();}};
+$("goBtn").onclick=()=>{const k=gateKey();if(!k){$("resumeNote").hidden=false;$("resumeNote").textContent="반과 조를 골라 주세요.";return;}
+  KEY=k;S=load(k)||fresh($("selCls").value,$("selTeam").value);save();
+  $("gate").hidden=true;$("who").textContent=`${S.cls}반 ${S.team}조`;
+  if(S.end)return showResult();
+  $("bar").hidden=false;$("room").hidden=false;tick=setInterval(onTick,500);onTick();drawRoom();};
+function onTick(){const r=remain(),m=Math.floor(r/60000),s=Math.floor(r%60000/1000);
+  $("timer").textContent=`⏱ ${m}:${String(s).padStart(2,"0")}`;$("timer").classList.toggle("warn",r<5*60000);
+  if(r<=0&&!S.end){S.end=S.start+LIMIT;S.timeUp=true;save();closeModal();showResult();}}
+
+/* ── 방 그리기 ── */
+function drawBar(){
+  $("doors").innerHTML=ROOMS.map((r,i)=>{const st=S.rooms[i];const c=st.score!==null?"done":i===S.room?"now":"";
+    return `<span class="dot ${c}" title="${i+1}. ${esc(r.name)}">${st.score!==null?"🔓":i===S.room?r.icon:"🔒"}</span>`;}).join("");
+  $("scoreNow").textContent=S.rooms.reduce((a,r)=>a+(r.score||0),0);}
+function drawRoom(){
+  const R=ROOMS[S.room],st=S.rooms[S.room];
+  drawBar();
+  $("rName").textContent=`${R.icon} ${S.room+1}. ${R.name}`;$("rTopic").textContent=R.topic;
+  $("intro").textContent=R.intro;
+  $("hintBtn").hidden=st.hint||st.score!==null;$("hintBtn").classList.remove("sure");$("hintBtn").textContent="💡 힌트 (−30)";
+  $("hintBox").hidden=!st.hint;$("hintBox").textContent=R.hint;
+  $("scene").innerHTML=SCENES[R.scene];
+  $("scene").querySelectorAll(".obj").forEach(g=>{
+    const id=g.dataset.obj,o=R.objects[id];if(!o)return;
+    if(st.seen[id])g.classList.add("seen");
+    try{const bb=g.getBBox(),r=document.createElementNS("http://www.w3.org/2000/svg","rect");   // 빈 곳을 눌러도 되게
+      r.setAttribute("x",bb.x);r.setAttribute("y",bb.y);r.setAttribute("width",bb.width);r.setAttribute("height",bb.height);r.setAttribute("fill","#000");r.setAttribute("fill-opacity","0");g.insertBefore(r,g.firstChild);}catch(e){}
+    g.addEventListener("click",()=>clickObj(id));
+    g.addEventListener("mousemove",e=>{const b=$("sceneWrap").getBoundingClientRect();$("tip").hidden=false;$("tip").textContent=o.label;$("tip").style.left=(e.clientX-b.left)+"px";$("tip").style.top=(e.clientY-b.top)+"px";});
+    g.addEventListener("mouseleave",()=>$("tip").hidden=true);
+  });
+  drawInv();
+  if(st.score!==null)showClear();else $("clear").hidden=true;
+}
+function drawInv(){
+  const R=ROOMS[S.room],st=S.rooms[S.room];
+  const items=Object.keys(R.items).filter(k=>st.items[k]&&!st.used[k]).map(k=>`<span class="slot item">${R.items[k].icon} ${esc(R.items[k].name)}</span>`);
+  const clues=Object.keys(R.clues).filter(k=>st.clues[k]).map(k=>`<button class="slot" data-c="${k}"><span class="sy">${R.clues[k].sym}</span>${esc(R.clues[k].title)}</button>`);
+  $("invItems").innerHTML=items.length?items.join(""):`<span class="empty">없음</span>`;
+  $("invClues").innerHTML=clues.length?clues.join(""):`<span class="empty">아직 없음 — 방의 물건을 눌러 보세요! (누르면 다시 볼 수 있어요)</span>`;
+  $("invClues").querySelectorAll("button[data-c]").forEach(b=>b.onclick=()=>openClue(b.dataset.c));
+}
+/* ── 물건 누르기 ── */
+function clickObj(id){
+  const R=ROOMS[S.room],st=S.rooms[S.room],o=R.objects[id];
+  st.seen[id]=true;save();
+  if(o.type==="lock")return openLock();
+  if(o.type==="decoy")return modal(`<div class="mt">${esc(o.label)}</div><div class="mtext">${esc(o.text)}</div>`);
+  if(o.type==="item"){
+    const had=st.items[o.item];st.items[o.item]=true;save();drawInv();
+    return modal(`<div class="mt">${esc(o.label)}</div><div class="mtext">${had?"이미 살펴본 곳이다.":esc(o.text)}</div>${had?"":`<div class="gain">${R.items[o.item].icon} ${esc(R.items[o.item].name)}을(를) 얻었다!</div>`}`);
+  }
+  if(o.type==="locked"&&!st.opened[id]){
+    if(!st.items[o.need])return modal(`<div class="mt">${esc(o.label)}</div><div class="mtext">🔒 ${esc(o.lockedText)}</div>`);
+    st.opened[id]=true;st.used[o.need]=true;save();
+    return openClue(o.clue,o.openText+` (${R.items[o.need].name}은(는) 다 썼다)`);
+  }
+  openClue(o.clue);
+}
+function openClue(cid,pre){
+  const R=ROOMS[S.room],st=S.rooms[S.room],c=R.clues[cid];
+  const first=!st.clues[cid];st.clues[cid]=true;save();drawInv();
+  modal(`${pre?`<div class="mtext" style="margin-bottom:10px">🔓 ${esc(pre)}</div>`:""}
+    <div class="mt"><span class="sy">${c.sym}</span>${esc(c.title)}</div>
+    ${c.fig?`<div class="mfig">${FIGS[c.fig]}</div>`:""}
+    <div class="mq">${esc(c.q)}</div>
+    ${c.opts?`<ul class="mo">${c.opts.map((o,i)=>`<li>${CIRC[i]} ${esc(o)}</li>`).join("")}</ul>`:""}
+    <div class="mtail">🔑 ${esc(c.tail)}</div>
+    ${first?`<div class="gain">📜 단서 ${c.sym}을(를) 단서 칸에 넣었다</div>`:""}`,true);
+}
+
+/* ── 자물쇠 ── */
+let dialV=[];
+function openLock(){
+  const R=ROOMS[S.room],st=S.rooms[S.room],L=R.lock;
+  if(st.score!==null)return modal(`<div class="mt">${esc(R.objects.door.label)}</div><div class="mtext">이미 열린 문이다. 다음 방으로!</div>`);
+  const sets=L.dials.map(d=>Array.isArray(d.set)?d.set:DIAL[d.set]);
+  dialV=L.dials.map(()=>0);
+  modal(`<div class="mt">🔒 ${esc(L.label)}</div><div class="mtext" style="font-size:15px">${esc(L.desc)}</div>
+    <div class="lockBody" id="lockBody"><div class="dials">${L.dials.map((d,i)=>`<div class="dial"><span class="sy">${d.sym}</span><button data-i="${i}" data-d="-1">▲</button><div class="v ${sets[i].some(x=>x.length>2)?"wide":""}" id="dv${i}">${esc(sets[i][0])}</div><button data-i="${i}" data-d="1">▼</button></div>`).join("")}</div>
+    <button class="big gold" id="tryLock">열어 보기</button><div class="lockMsg" id="lockMsg"></div></div>`);
+  $("mBody").querySelectorAll(".dial button").forEach(b=>b.onclick=()=>{const i=+b.dataset.i,set=sets[i];dialV[i]=(dialV[i]+(+b.dataset.d)+set.length)%set.length;$("dv"+i).textContent=set[dialV[i]];$("lockMsg").textContent="";});
+  $("tryLock").onclick=()=>{
+    const code=dialV.map((v,i)=>sets[i][v]).join("|");
+    if(h53(SALT+"r"+R.id+"|"+code)===L.h){st.score=roomScore(st);save();closeModal();drawBar();showClear();}
+    else{st.wrong++;save();$("lockMsg").className="lockMsg bad";$("lockMsg").textContent=`철컥… 열리지 않는다! (이 방 −${20*st.wrong}점)`;
+      const lb=$("lockBody");lb.classList.remove("shake");void lb.offsetWidth;lb.classList.add("shake");}
+  };
+}
+
+/* ── 힌트 ── */
+$("hintBtn").onclick=e=>{const b=e.currentTarget;if(!b.classList.contains("sure")){b.classList.add("sure");b.textContent="정말 열까요? (−30)";return;}
+  S.rooms[S.room].hint=true;save();drawRoom();};
+
+/* ── 팝업 ── */
+function modal(html,paper){$("mBody").innerHTML=html;$("mBox").classList.toggle("paper",!!paper);$("modal").hidden=false;}
+function closeModal(){$("modal").hidden=true;}
+$("mClose").onclick=closeModal;$("modal").onclick=e=>{if(e.target.id==="modal")closeModal();};
+addEventListener("keydown",e=>{if(e.key==="Escape")closeModal();});
+
+/* ── 방 탈출 ── */
+function showClear(){
+  const st=S.rooms[S.room],last=S.room===ROOMS.length-1,c=$("clear");c.hidden=false;$("hintBtn").hidden=true;
+  c.innerHTML=`<div class="t">${last?"🎉 마지막 문이 열렸다!":"🚪 철컥! 문이 열렸다!"}</div>
+    <div class="s">이 방 점수 ${st.score}점 (자물쇠 틀림 ${st.wrong}번${st.hint?" · 힌트 사용":""})</div>
+    <button class="big ${last?"gold":""}" id="nextBtn">${last?"연구소 탈출하기 →":"다음 방으로 →"}</button>`;
+  $("nextBtn").onclick=()=>{if(last){S.end=Date.now();save();showResult();}else{S.room++;save();drawRoom();scrollTo(0,0);}};
+  c.scrollIntoView({behavior:"smooth",block:"center"});
+}
+
+/* ── 결과 ── */
+function showResult(){
+  clearInterval(tick);["bar","room"].forEach(id=>$(id).hidden=true);
+  const used=Math.min(LIMIT,S.end-S.start),um=Math.floor(used/60000),us=Math.floor(used%60000/1000);
+  const rows=ROOMS.map((r,i)=>{const st=S.rooms[i];return `<tr><td>${r.icon} ${i+1}. ${esc(r.name)}</td><td class="r">${st.score===null?"—":`틀림 ${st.wrong}${st.hint?" · 힌트":""}`}</td><td class="r">${st.score===null?0:st.score}</td></tr>`;}).join("");
+  $("result").hidden=false;
+  $("result").innerHTML=`<div class="card"><div class="logo">${S.timeUp?"⏰":"🏆"}</div><div id="rTitle">${S.timeUp?"시간 종료!":"탈출 성공!"}</div>
+    <div id="rWho">${S.cls}반 ${S.team}조</div><div id="rTotal">${total()}</div><div class="sub">점</div>
+    <table><tr><th>방</th><th class="r">기록</th><th class="r">점수</th></tr>${rows}
+    <tr><td>⏱ 시간 보너스</td><td class="r">${S.timeUp?"시간 종료":`${um}분 ${us}초 만에 탈출`}</td><td class="r">${bonus()}</td></tr>
+    <tr class="sum"><td>합계</td><td></td><td class="r">${total()}</td></tr></table>
+    <div class="note">이 화면을 그대로 두고 선생님께 점수를 알려 주세요.</div></div>`;
+}
+</script>
+</body>
+</html>
