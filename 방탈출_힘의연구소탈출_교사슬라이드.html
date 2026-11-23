@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>힘의 연구소 탈출 — 교사 슬라이드</title>
+<!--
+  조별 방탈출 교사 슬라이드 (2026-11-23) · 학생에게 배포하지 않는다 (정답 풀이 포함)
+  · 조 노트북 주소: veansci.github.io/ForceEscape (서버 없음)
+  · 키: ← → 넘기기 · 클릭/Space 다음 조각 · F 전체 화면
+  · 점수판은 이 PC 브라우저에 반별로 저장된다 (다른 반은 보이지 않음)
+  · 문제 근거: 17~22차시 수업 슬라이드의 형성평가·스스로 확인하기 (정답 장 아래쪽 회색 글씨)
+-->
+<style>
+  :root{--ink:#2c3151;--navy:#3f4e9e;--gold:#cf9520;--ok:#18a058;--coral:#e8635f;--paper:#f8f9fe;--night:#1e2340;}
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:#0f1226;font-family:"Apple SD Gothic Neo","Malgun Gothic","맑은 고딕",system-ui,sans-serif;color:var(--ink);overflow:hidden;}
+  #stage{position:absolute;left:50%;top:50%;width:1600px;height:900px;transform-origin:center;}
+  section{position:absolute;inset:0;background:#fff;padding:60px 80px;display:none;flex-direction:column;}
+  section.on{display:flex;}
+  section.dark{background:radial-gradient(circle at 50% 30%,#2f3870,#1e2340 70%);color:#fff;}
+  .kicker{font-size:24px;font-weight:900;color:var(--navy);margin-bottom:10px;}
+  .dark .kicker{color:#ffd76a;}
+  h1{font-size:96px;margin:0;font-weight:900;}
+  h2{font-size:58px;margin:0 0 26px;font-weight:900;}
+  .lead{font-size:34px;font-weight:700;line-height:1.6;}
+  .center{align-items:center;justify-content:center;text-align:center;}
+  .fr{visibility:hidden;}
+  .fr.show{visibility:visible;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:26px;}
+  .box{background:var(--paper);border-radius:22px;padding:26px 30px;font-size:30px;font-weight:700;line-height:1.6;}
+  .box b{color:var(--navy);}
+  .url{display:inline-block;background:#fff;color:var(--navy);border-radius:18px;padding:16px 36px;font-size:54px;font-weight:900;margin:20px 0;}
+  #clsPick button{font:inherit;font-size:30px;font-weight:900;border:3px solid #fff;background:transparent;color:#fff;border-radius:14px;padding:10px 26px;margin:0 6px;cursor:pointer;}
+  #clsPick button.sel{background:#ffd76a;color:var(--night);border-color:#ffd76a;}
+  .foot{position:absolute;right:30px;bottom:20px;font-size:18px;color:#9aa1c0;font-weight:700;}
+
+  /* 타이머 */
+  #tm{font-size:300px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1;}
+  #tm.warn{color:#ff8a80;}
+  .tbtn{font:inherit;font-size:30px;font-weight:900;border:0;border-radius:14px;padding:14px 30px;margin:0 8px;cursor:pointer;background:#ffd76a;color:var(--night);}
+  .tbtn.g{background:rgba(255,255,255,.15);color:#fff;}
+
+  /* 점수판 */
+  #board{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:6px;}
+  .team{background:var(--paper);border-radius:20px;padding:16px;text-align:center;border:4px solid transparent;}
+  .team .n{font-size:28px;font-weight:900;}
+  .team input{width:100%;font:inherit;font-size:54px;font-weight:900;text-align:center;border:0;background:transparent;color:var(--gold);}
+  .team .rk{font-size:24px;font-weight:900;color:var(--navy);min-height:30px;}
+  .team.r1{border-color:#ffd76a;background:#fff8df;}
+  .rowb{display:flex;gap:14px;margin-top:18px;}
+  .rowb button{font:inherit;font-size:24px;font-weight:900;border:0;border-radius:12px;padding:12px 22px;cursor:pointer;background:var(--navy);color:#fff;}
+  .rowb button.c{background:#ccd1e6;color:var(--ink);}
+
+  /* 정답 풀이 */
+  .ans{display:grid;gap:14px;}
+  .aq{display:grid;grid-template-columns:70px 1fr;gap:16px;background:var(--paper);border-radius:18px;padding:16px 22px;}
+  .aq .num{font-size:30px;font-weight:900;color:#fff;background:var(--navy);border-radius:14px;display:flex;align-items:center;justify-content:center;}
+  .aq .qt{font-size:24px;font-weight:800;line-height:1.45;white-space:pre-line;}
+  .aq .a{font-size:26px;font-weight:900;color:var(--ok);margin-top:6px;}
+  .aq .e{font-size:21px;font-weight:700;color:#4d5578;margin-top:2px;}
+  .aq .s{font-size:15px;font-weight:700;color:#9aa1c0;margin-top:4px;}
+  .code{margin-top:12px;background:var(--night);color:#ffd76a;border-radius:16px;padding:12px 22px;font-size:30px;font-weight:900;display:flex;gap:18px;align-items:center;}
+  .code small{color:#aab1d6;font-size:18px;}
+  section.ansS{padding:40px 70px;}
+  section.ansS h2{font-size:46px;margin-bottom:14px;}
+  .dense{gap:10px;}
+  .dense .aq{padding:10px 18px;grid-template-columns:56px 1fr;}
+  .dense .aq .qt{font-size:20px;line-height:1.4;} .dense .aq .a{font-size:22px;margin-top:4px;} .dense .aq .e{font-size:18px;} .dense .aq .s{font-size:14px;margin-top:2px;}
+</style>
+</head>
+<body>
+<div id="stage">
+
+<section class="dark center" data-name="표지">
+  <div class="kicker">22차시 뒤 · 복습 게임 · 성적에 넣지 않아요</div>
+  <div style="font-size:120px">🔬🔒</div>
+  <h1>힘의 연구소 탈출</h1>
+  <div class="lead" style="margin-top:14px">연구소 문 6개가 잠겼다! 17~22차시에 배운 힘의 비밀로 탈출하라.</div>
+  <div id="clsPick" style="margin-top:40px"><span style="font-size:24px;font-weight:800;margin-right:10px">반 고르기</span>
+    <button data-c="1">1반</button><button data-c="2">2반</button><button data-c="3">3반</button><button data-c="4">4반</button></div>
+</section>
+
+<section data-name="규칙">
+  <div class="kicker">게임 규칙</div>
+  <h2>방 6개 · 단서 20개 · 30분</h2>
+  <div class="grid2">
+    <div class="box">🔍 방 그림의 <b>물건을 눌러</b> 단서와 소지품을 찾는다<br>
+      🔑 소지품(열쇠·장갑…)으로 잠긴 곳을 연다 · <b>꽝</b>도 있다<br>
+      📜 단서를 풀어도 정답은 안 알려 줌 → 답이 <b>비밀번호</b>가 된다</div>
+    <div class="box">⭐ 방마다 <b>100점</b>에서 시작<br>
+      ❌ 자물쇠를 틀리게 열면 <b>−20</b> · 💡 힌트 <b>−30</b><br>
+      한 방 최저 <b>40점</b><br>
+      ⏱ 일찍 탈출하면 남은 1분마다 <b>+5</b></div>
+    <div class="box fr">🤝 조원 <b>모두</b> 의논해서 답 정하기<br>📕 교과서·학습지는 <b>덮고</b> — 막히면 힌트!</div>
+    <div class="box fr">🏁 끝나면 결과 화면을 그대로 두고 손 들기<br>→ 선생님이 점수판에 기록</div>
+  </div>
+</section>
+
+<section class="dark center" data-name="접속">
+  <div class="kicker">조 노트북에서</div>
+  <h2>주소창에 입력</h2>
+  <div class="url">veansci.github.io/ForceEscape</div>
+  <div class="lead">반 · 조를 고르고 <b style="color:#ffd76a">입장하기</b> → 선생님이 “시작!” 하면 눌러요</div>
+  <div class="lead" style="font-size:24px;color:#aab1d6;margin-top:20px">시간은 입장한 순간부터 노트북마다 따로 잽니다</div>
+</section>
+
+<section class="dark center" data-name="타이머">
+  <div class="kicker">탈출 시작!</div>
+  <div id="tm">30:00</div>
+  <div style="margin-top:30px"><button class="tbtn" id="tmGo">▶ 시작</button><button class="tbtn g" id="tmReset">↺ 30:00</button></div>
+</section>
+
+<section data-name="점수판">
+  <div class="kicker" id="bdKicker">점수판</div>
+  <h2>🏆 우리 반 탈출 기록</h2>
+  <div id="board"></div>
+  <div class="rowb"><button id="bdRank">순위 보기</button><button class="c" id="bdClear">이 반 점수 지우기</button></div>
+</section>
+
+<section class="ansS" data-name="정답 1"><div class="kicker">정답 풀이 · 1 / 6</div>
+  <h2>➡️ 힘의 방 <span style="font-size:26px;color:#9aa1c0">힘의 표현 · 알짜힘 (17·18차시)</span></h2>
+  <div class="ans dense"><div class="aq"><div class="num">●</div><div><div class="qt">과학에서 말하는 ‘힘’에 대한 설명으로 옳은 것은?
+① 어떤 일을 할 수 있는 능력   ② 몸에 생기는 기운   ③ 물체의 모양이나 운동 상태를 변하게 하는 원인   ④ 일이나 활동에 도움이 되는 것</div>
+      <div class="fr"><div class="a">● = 3</div><div class="e">능력·기운·도움은 일상의 뜻. 과학의 힘은 물체의 모양이나 운동 상태를 변하게 하는 원인.</div><div class="s">찾는 곳: 책장 · 근거: 17차시 형성평가 1 · 교과서 146쪽</div></div></div></div>
+<div class="aq"><div class="num">▲</div><div><div class="qt">공을 미는 힘을 화살표로 나타냈다. 화살표의 ‘길이’가 나타내는 것은?
+① 힘의 방향   ② 힘의 크기   ③ 힘의 작용점</div>
+      <div class="fr"><div class="a">▲ = 2</div><div class="e">길이 = 크기, 가리키는 방향 = 방향, 시작점 = 작용점.</div><div class="s">찾는 곳: 칠판 · 근거: 17차시 형성평가 3 · 교과서 147쪽</div></div></div></div>
+<div class="aq"><div class="num">■</div><div><div class="qt">상자에 같은 방향(오른쪽)으로 3 N과 2 N의 힘이 작용한다.</div>
+      <div class="fr"><div class="a">■ = 5</div><div class="e">같은 방향이면 더한다: 3 N + 2 N = 5 N.</div><div class="s">찾는 곳: 책상 서랍 (작은 열쇠 필요 — 화분에 있음) · 근거: 18차시 스스로 확인하기 2 · 교과서 149쪽</div></div></div></div></div><div class="code fr"><small>🔓 비밀번호</small>● 3 · ▲ 2 · ■ 5</div></section>
+
+<section class="ansS" data-name="정답 2"><div class="kicker">정답 풀이 · 2 / 6</div>
+  <h2>🌍 중력의 방 <span style="font-size:26px;color:#9aa1c0">중력 · 무게와 질량 (19차시)</span></h2>
+  <div class="ans dense"><div class="aq"><div class="num">●</div><div><div class="qt">무게와 질량에 관한 설명으로 옳지 않은 것은?
+① 질량은 물체가 가진 고유한 양이다.   ② 무게는 물체에 작용하는 중력의 크기이다.   ③ 무게는 주로 kg이라는 단위를 사용하여 나타낸다.   ④ 무게는 장소에 따라 크기가 달라진다.   ⑤ 지구와 달에서는 질량이 같다.</div>
+      <div class="fr"><div class="a">● = 3</div><div class="e">무게의 단위는 N(뉴턴). kg은 질량의 단위.</div><div class="s">찾는 곳: 망원경 · 근거: 19차시 형성평가 2 · 출판사 수업 PPT</div></div></div></div>
+<div class="aq"><div class="num">▲</div><div><div class="qt">중력이 작용하여 나타난 현상이 아닌 것은?
+① 고드름이 아래로 자란다.   ② 폭포에서 물이 아래로 떨어진다.   ③ 물체가 무겁거나 가볍다고 느낀다.   ④ 지구를 둘러싸고 있는 공기층이 있다.   ⑤ 미끄러운 병뚜껑에 고무줄을 감아서 열었다.</div>
+      <div class="fr"><div class="a">▲ = 5</div><div class="e">고무줄을 감는 것은 손이 미끄러지지 않게 하려는 것(마찰력).</div><div class="s">찾는 곳: 창문 (고드름) · 근거: 19차시 형성평가 1 · 출판사 수업 PPT</div></div></div></div>
+<div class="aq"><div class="num">■</div><div><div class="qt">지구에서 질량이 10 kg인 물체를, 중력을 거의 느낄 수 없는 우주 정거장에 가져갔다. (질량은 10 kg 그대로)</div>
+      <div class="fr"><div class="a">■ = 0</div><div class="e">질량은 장소와 관계없이 10 kg, 중력을 거의 느낄 수 없으므로 무게는 0.</div><div class="s">찾는 곳: 진열장 (카드키 필요 — 우주복에 있음) · 근거: 19차시 스스로 확인하기 2 · 교과서 152쪽 (지도서 249쪽 답: 질량 10 kg, 무게 0)</div></div></div></div></div><div class="code fr"><small>🔓 비밀번호</small>● 3 · ▲ 5 · ■ 0</div></section>
+
+<section class="ansS" data-name="정답 3"><div class="kicker">정답 풀이 · 3 / 6</div>
+  <h2>🌀 탄성력의 방 <span style="font-size:26px;color:#9aa1c0">탄성력 (20차시)</span></h2>
+  <div class="ans dense"><div class="aq"><div class="num">●</div><div><div class="qt">빈칸에 들어갈 말을 바르게 짝지은 것은? (1) 탄성력의 방향은 탄성체에 가한 힘의 방향과 ( ㉠ ) 방향이다. (2) 탄성력의 크기는 탄성체가 변형된 정도가 ( ㉡ ) 크다.
+① ㉠ 반대 · ㉡ 클수록   ② ㉠ 같은 · ㉡ 클수록   ③ ㉠ 반대 · ㉡ 작을수록   ④ ㉠ 같은 · ㉡ 작을수록</div>
+      <div class="fr"><div class="a">● = 1</div><div class="e">탄성력은 가한 힘과 반대 방향, 변형된 정도가 클수록 크다.</div><div class="s">찾는 곳: 양궁 과녁 · 근거: 20차시 형성평가 1 · 출판사 수업 PPT</div></div></div></div>
+<div class="aq"><div class="num">▲</div><div><div class="qt">이 말은 맞을까? “탄성력의 크기는 용수철의 전체 길이에 비례한다.”</div>
+      <div class="fr"><div class="a">▲ = X</div><div class="e">탄성력의 크기는 용수철이 ‘늘어난 길이’에 비례한다.</div><div class="s">찾는 곳: 트램펄린 · 근거: 20차시 형성평가 3 · 지도서 255쪽 오개념</div></div></div></div>
+<div class="aq"><div class="num">■</div><div><div class="qt">탄성력을 이용하는 예가 아닌 것은?
+① 양궁   ② 열기구   ③ 머리끈   ④ 용수철저울   ⑤ 장대높이뛰기</div>
+      <div class="fr"><div class="a">■ = 열기구</div><div class="e">열기구는 풍선 속 공기를 가열해서 떠오른다.</div><div class="s">찾는 곳: 사물함 (사물함 열쇠 필요 — 공 바구니에 있음) · 근거: 20차시 형성평가 2 · 출판사 수업 PPT</div></div></div></div></div><div class="code fr"><small>🔓 비밀번호</small>● 1 · ▲ X · ■ 열기구</div></section>
+
+<section class="ansS" data-name="정답 4"><div class="kicker">정답 풀이 · 4 / 6</div>
+  <h2>🧊 마찰력의 방 <span style="font-size:26px;color:#9aa1c0">마찰력 (21차시)</span></h2>
+  <div class="ans dense"><div class="aq"><div class="num">●</div><div><div class="qt">책상 위에서 오른쪽으로 미끄러지는 병뚜껑에 작용하는 마찰력의 방향은?</div>
+      <div class="fr"><div class="a">● = ←</div><div class="e">미끄러지는 방향과 반대 방향(왼쪽)으로 마찰력이 작용해 결국 정지한다.</div><div class="s">찾는 곳: 병뚜껑 · 근거: 21차시 형성평가 1 · 교과서 159쪽</div></div></div></div>
+<div class="aq"><div class="num">▲</div><div><div class="qt">빈칸에 들어갈 말을 바르게 짝지은 것은? 마찰력의 크기는 접촉면이 ( ㉠ )수록, 물체의 무게가 ( ㉡ )수록 크다.
+① ㉠ 거칠 · ㉡ 무거울   ② ㉠ 거칠 · ㉡ 가벼울   ③ ㉠ 매끄러울 · ㉡ 무거울   ④ ㉠ 매끄러울 · ㉡ 가벼울</div>
+      <div class="fr"><div class="a">▲ = 1</div><div class="e">접촉면이 거칠수록, 물체의 무게가 무거울수록 마찰력이 크다.</div><div class="s">찾는 곳: 썰매 · 근거: 21차시 형성평가 2 · 교과서 159쪽 스스로 확인하기 2</div></div></div></div>
+<div class="aq"><div class="num">■</div><div><div class="qt">이 말은 맞을까? “마찰력은 물체의 운동을 방해하므로 항상 작을수록 좋다.”</div>
+      <div class="fr"><div class="a">■ = X</div><div class="e">마찰력이 커야 좋은 경우도 있다 — 방금 쓴 고무 장갑처럼! (제동 장치, 등산화)</div><div class="s">찾는 곳: 얼음 덩어리 (고무 장갑 필요 — 선반에 있음) · 근거: 21차시 형성평가 3 · 지도서 257쪽</div></div></div></div>
+<div class="aq"><div class="num">◆</div><div><div class="qt">무거운 상자를 오른쪽으로 밀었지만 상자가 움직이지 않았다. 정지해 있는 상자에도 마찰력이 작용한다.</div>
+      <div class="fr"><div class="a">◆ = ←</div><div class="e">물체가 정지해 있으면 물체에 작용한 힘(오른쪽)과 반대 방향(왼쪽)으로 마찰력이 작용한다.</div><div class="s">찾는 곳: 나무 상자 · 근거: 21차시 내용 설명 2 · 지도서 259쪽 (정지한 물체: 작용한 힘과 반대 방향)</div></div></div></div></div><div class="code fr"><small>🔓 비밀번호</small>● ← · ▲ 1 · ■ X · ◆ ←</div></section>
+
+<section class="ansS" data-name="정답 5"><div class="kicker">정답 풀이 · 5 / 6</div>
+  <h2>🌊 부력의 방 <span style="font-size:26px;color:#9aa1c0">부력 (22차시)</span></h2>
+  <div class="ans dense"><div class="aq"><div class="num">●</div><div><div class="qt">물에 떠 있는 튜브에는 물이 튜브를 밀어 올리는 힘, 부력이 작용한다. 부력은 액체나 기체가 그 속에 있는 물체를 밀어 올리는 힘이다.</div>
+      <div class="fr"><div class="a">● = ↑</div><div class="e">부력은 위로 밀어 올리는 힘 — 중력과 반대 방향.</div><div class="s">찾는 곳: 튜브 · 근거: 22차시 · 교과서 160쪽 (부력의 방향: 중력과 반대 방향)</div></div></div></div>
+<div class="aq"><div class="num">▲</div><div><div class="qt">빈 화물선에 짐을 가득 실으면, 화물선에 작용하는 부력의 크기는?
+① 작아진다   ② 변하지 않는다   ③ 커진다   ④ 부력이 작용하지 않는다</div>
+      <div class="fr"><div class="a">▲ = 3</div><div class="e">짐을 실으면 더 가라앉아 물에 잠긴 부피가 커지므로 부력도 커진다.</div><div class="s">찾는 곳: 화물선 모형 · 근거: 22차시 형성평가 1 · 교과서 163쪽 스스로 확인하기 2</div></div></div></div>
+<div class="aq"><div class="num">■</div><div><div class="qt">물체 A를 용수철저울에 매달았더니 공기 중에서 40 N, 물속에 넣었을 때 30 N을 가리켰다.</div>
+      <div class="fr"><div class="a">■ = 10 N</div><div class="e">부력 = 40 N − 30 N = 10 N.</div><div class="s">찾는 곳: 잠수 장비 상자 (상자 열쇠 필요 — 그물에 있음) · 근거: 22차시 형성평가 2 · 2021학년도 3월 고1 전국연합학력평가 과학 5번</div></div></div></div></div><div class="code fr"><small>🔓 비밀번호</small>● ↑ · ▲ 3 · ■ 10 N</div></section>
+
+<section class="ansS" data-name="정답 6"><div class="kicker">정답 풀이 · 6 / 6</div>
+  <h2>⚖️ 평형의 문 <span style="font-size:26px;color:#9aa1c0">힘의 평형 · 종합 (18·22차시) — 마지막 문</span></h2>
+  <div class="ans dense"><div class="aq"><div class="num">●</div><div><div class="qt">이 말은 맞을까? “두 힘의 크기만 같으면 방향과 상관없이 힘의 평형을 이룬다.”</div>
+      <div class="fr"><div class="a">● = X</div><div class="e">같은 방향이면 더해진다. 평형은 크기가 같고 방향이 반대일 때.</div><div class="s">찾는 곳: 거대한 저울 · 근거: 18차시 진단 다시 풀기 2 · 교과서 149쪽</div></div></div></div>
+<div class="aq"><div class="num">▲</div><div><div class="qt">줄에 왼쪽으로 2 N, 오른쪽으로 3 N의 힘이 작용한다.</div>
+      <div class="fr"><div class="a">▲ = →</div><div class="e">반대 방향이면 큰 힘에서 작은 힘을 뺀다: 3 N − 2 N = 1 N, 방향은 큰 힘 쪽(오른쪽).</div><div class="s">찾는 곳: 줄다리기 그림 · 근거: 18차시 진단 1 · 교과서 149쪽</div></div></div></div>
+<div class="aq"><div class="num">■</div><div><div class="qt">물 바닥에 가라앉은 금속 덩어리에 작용하는 힘에 대한 설명으로 옳은 것은?
+① 부력이 작용하지 않는다.   ② 부력이 중력보다 작다.   ③ 부력과 중력의 크기가 같다.   ④ 부력이 중력보다 크다.</div>
+      <div class="fr"><div class="a">■ = 2</div><div class="e">가라앉은 물체에도 부력이 작용한다. 부력보다 중력이 커서 가라앉는다.</div><div class="s">찾는 곳: 수조 · 근거: 22차시 조 C · 교과서 163쪽 그림 Ⅴ-13, 지도서 264쪽</div></div></div></div>
+<div class="aq"><div class="num">◆</div><div><div class="qt">같은 금속으로 만든 배가 물 위에 떠서 가만히 있다. 배에 작용하는 부력과 중력은?
+① 부력이 중력보다 크다.   ② 크기가 같고 방향이 반대이다.   ③ 부력이 중력보다 작다.   ④ 부력만 작용하고 중력은 작용하지 않는다.</div>
+      <div class="fr"><div class="a">◆ = 2</div><div class="e">떠서 가만히 있는 배 → 부력과 중력의 크기가 같고 방향이 반대 = 힘의 평형.</div><div class="s">찾는 곳: 배 모형 · 근거: 22차시 조 C · 교과서 163쪽, 18차시 평형 조건</div></div></div></div></div><div class="code fr"><small>🔓 비밀번호</small>● X · ▲ → · ■ 2 · ◆ 2</div></section>
+
+<section class="center" data-name="마무리">
+  <div class="kicker">수업 마무리</div>
+  <h2>가장 어려웠던 자물쇠는?</h2>
+  <div class="lead">한두 조 발표 → 다음 시간: <b>수행평가 2</b></div>
+</section>
+
+</div>
+<div class="foot" id="foot"></div>
+
+<script>
+const secs=[...document.querySelectorAll("section")]; let cur=0;
+let CLS=null; try{CLS=localStorage.getItem("esc26_slide_cls");}catch(e){}
+function fit(){const s=Math.min(innerWidth/1600,innerHeight/900);document.getElementById("stage").style.transform=`translate(-50%,-50%) scale(${s})`;}
+addEventListener("resize",fit); fit();
+function go(i){cur=Math.max(0,Math.min(secs.length-1,i));secs.forEach((s,k)=>s.classList.toggle("on",k===cur));
+  document.getElementById("foot").textContent=`${CLS?CLS+"반 · ":""}${cur+1} / ${secs.length} · ${secs[cur].dataset.name}`;
+  if(secs[cur].dataset.name==="점수판") drawBoard();}
+function next(){const f=secs[cur].querySelector(".fr:not(.show)"); if(f){f.classList.add("show");return;} go(cur+1);}
+addEventListener("keydown",e=>{
+  if(e.target.tagName==="INPUT") return;
+  if(["ArrowRight","PageDown"," "].includes(e.key)){e.preventDefault();next();}
+  if(["ArrowLeft","PageUp"].includes(e.key)){e.preventDefault();go(cur-1);}
+  if(e.key==="f"||e.key==="F"){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();}
+});
+document.getElementById("stage").addEventListener("click",e=>{if(e.target.closest("button,input"))return;next();});
+
+/* 반 고르기 */
+function markCls(){document.querySelectorAll("#clsPick button").forEach(b=>b.classList.toggle("sel",b.dataset.c===CLS));}
+document.querySelectorAll("#clsPick button").forEach(b=>b.onclick=()=>{CLS=b.dataset.c;try{localStorage.setItem("esc26_slide_cls",CLS);}catch(e){}markCls();go(cur);});
+markCls();
+
+/* 타이머 (교실 전체용 — 노트북 시간과 따로) */
+let tEnd=null,tInt=null;
+function tDraw(ms){const m=Math.floor(ms/60000),s=Math.floor(ms%60000/1000);const el=document.getElementById("tm");el.textContent=`${m}:${String(s).padStart(2,"0")}`;el.classList.toggle("warn",ms<5*60000);}
+document.getElementById("tmGo").onclick=()=>{if(tInt)return;tEnd=Date.now()+30*60000;tInt=setInterval(()=>{const r=Math.max(0,tEnd-Date.now());tDraw(r);if(!r){clearInterval(tInt);tInt=null;}},250);};
+document.getElementById("tmReset").onclick=()=>{clearInterval(tInt);tInt=null;tDraw(30*60000);};
+
+/* 점수판 (이 PC에 반별 저장, 다른 반은 안 보임) */
+let showRank=false;
+const bKey=()=>`esc26_board_${CLS}`;
+function bLoad(){try{return JSON.parse(localStorage.getItem(bKey())||"{}");}catch(e){return {};}}
+function bSave(o){try{localStorage.setItem(bKey(),JSON.stringify(o));}catch(e){}}
+function drawBoard(){
+  const k=document.getElementById("bdKicker"), bd=document.getElementById("board");
+  if(!CLS){k.textContent="점수판 — 표지에서 반을 먼저 고르세요";bd.innerHTML="";return;}
+  k.textContent=`점수판 · ${CLS}반`;
+  const o=bLoad(), vals=Object.values(o).map(Number).filter(v=>!isNaN(v)).sort((a,b)=>b-a);
+  bd.innerHTML=[1,2,3,4,5,6,7,8].map(t=>{const v=o[t]??"";const rk=showRank&&v!==""?vals.indexOf(Number(v))+1:0;
+    return `<div class="team ${rk===1?"r1":""}"><div class="n">${t}조</div><input data-t="${t}" value="${v}" inputmode="numeric" placeholder="—"><div class="rk">${rk?rk+"등":""}</div></div>`;}).join("");
+  bd.querySelectorAll("input").forEach(i=>i.onchange=()=>{const o=bLoad();const v=i.value.trim();if(v==="")delete o[i.dataset.t];else o[i.dataset.t]=v.replace(/[^0-9]/g,"");bSave(o);drawBoard();});
+}
+document.getElementById("bdRank").onclick=()=>{showRank=!showRank;drawBoard();};
+document.getElementById("bdClear").onclick=e=>{const b=e.currentTarget;if(!b.dataset.sure){b.dataset.sure=1;b.textContent="한 번 더 누르면 지워져요";return;}
+  delete b.dataset.sure;b.textContent="이 반 점수 지우기";try{localStorage.removeItem(bKey());}catch(e){}drawBoard();};
+go(0);
+</script>
+</body>
+</html>
